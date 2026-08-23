@@ -1,8 +1,29 @@
 # OrbitCID
 
+[![CI](https://github.com/0xmdrakib/OrbitCID/actions/workflows/ci.yml/badge.svg)](https://github.com/0xmdrakib/OrbitCID/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/0xmdrakib/OrbitCID/actions/workflows/codeql.yml/badge.svg)](https://github.com/0xmdrakib/OrbitCID/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-141413.svg)](./LICENSE)
+
 OrbitCID is a secure, self-hosted IPFS storage and publishing platform. A Cloudflare control plane provides verified uploads, project isolation, authentication, gateway acceleration, and recovery metadata; a persistent Kubo data plane on the operator's server provides the real IPFS WAN DHT, Bitswap, libp2p, pinning, and public content advertisement.
 
 The repository contains no hosted service URL and no shared public gateway. Every operator deploys an independent installation. The dashboard can share the Worker origin or run as a static application on Vercel, Cloudflare Pages, or another static host. Kubo can run on GCP, AWS, Azure, DigitalOcean, Hetzner, a dedicated server, NAS, or any suitable Linux VPS.
+
+> [!IMPORTANT]
+> OrbitCID is pre-1.0 self-hosted infrastructure, not a managed pinning service. Start with private projects, use a staging environment, and complete the production checklist before publishing content to the public IPFS network.
+
+## Navigate
+
+- [Why OrbitCID](#why-orbitcid)
+- [Architecture](#architecture)
+- [True IPFS boundary](#is-this-true-ipfs)
+- [Deployment choices](#deployment-choices)
+- [Quick start](#quick-start)
+- [Security model](#security-model)
+- [Failure and recovery model](#failure-and-recovery-model)
+- [Project API example](#project-api-example)
+- [Compatibility policy](#data-and-compatibility-policy)
+- [Contributing](#contributing)
+- [Security reporting](#security-reporting)
 
 ## Why OrbitCID
 
@@ -59,6 +80,19 @@ The Worker by itself remains an IPFS-compatible HTTP control plane, not a libp2p
 
 For a separate dashboard host, use a custom HTTPS hostname under the same registrable domain as the API, set `VITE_API_ORIGIN` at build time, and set the Worker's `DASHBOARD_ORIGIN` to that exact origin. This same-site requirement preserves the strict admin-session cookie; a default cross-site `*.vercel.app` hostname is intentionally unsupported for authenticated production sessions. Protect both origins with the intended Cloudflare Access policy. API keys belong only in server-side applications, never in a public frontend bundle.
 
+## Repository map
+
+| Path | Responsibility |
+| --- | --- |
+| `dashboard/` | React owner dashboard and client-side sealed vault |
+| `src/` | Worker API, gateway, authentication, projects, jobs, and replication |
+| `migrations/` | Ordered D1 schema and security migrations |
+| `infra/node/` | Portable Docker Compose Kubo node, authenticated agent, and CAR backup |
+| `infra/terraform/` | Cloudflare control-plane resources only |
+| `infra/terraform-google/` | Optional isolated GCP Kubo node module |
+| `docs/` | Deployment runbook and threat model |
+| `test/` | Protocol, project policy, replication, recovery, and safety tests |
+
 ## Security model
 
 - The admin hostname belongs behind a Cloudflare Access application restricted to the operator's identity provider account.
@@ -70,7 +104,7 @@ For a separate dashboard host, use a custom HTTPS hostname under the same regist
 - Login, mutation, and public gateway limits use atomic Durable Object counters.
 - Sealed-vault keys and plaintext never leave the browser.
 
-See [SECURITY.md](SECURITY.md) and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) before operating a public gateway.
+Read the [threat model](docs/THREAT_MODEL.md) before operating a public gateway.
 
 ## Requirements
 
@@ -85,11 +119,13 @@ See [SECURITY.md](SECURITY.md) and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) 
 
 Workers Free can be used for development or light personal workloads. A paid Workers plan is optional and provides additional production headroom; OrbitCID does not require it merely to start.
 
-## Local verification
+## Quick start
 
-Local authentication bypasses are intentionally not included. Protocol and UI builds can be tested without weakening production authentication:
+### Verify the project locally
 
-```powershell
+```bash
+git clone https://github.com/0xmdrakib/OrbitCID.git
+cd OrbitCID
 npm ci
 npm test
 npm run typecheck
@@ -98,7 +134,25 @@ npm audit --omit=dev
 npm run security:release
 ```
 
-To test the authenticated dashboard end-to-end, use a staging hostname protected by Cloudflare Access.
+Local authentication bypasses are intentionally not included. Protocol and UI builds can be tested without weakening production authentication:
+
+```bash
+npm run dev
+```
+
+The local Worker displays the fail-closed Access gate. Test the authenticated dashboard end-to-end on a staging hostname protected by Cloudflare Access.
+
+### Start the portable Kubo data plane
+
+```bash
+cd infra/node
+cp .env.example .env
+# Replace every placeholder before starting services.
+docker compose up -d kubo agent
+docker compose ps
+```
+
+Expose only the configured swarm port, default `4001/TCP+UDP`. RPC `5001` and the local Kubo gateway `8080` remain bound to loopback. Continue with the [portable node guide](infra/node/README.md) before enabling the Tunnel or backup profiles.
 
 ## Deployment overview
 
@@ -112,7 +166,7 @@ To test the authenticated dashboard end-to-end, use a staging hostname protected
 
 Full instructions are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), with the portable VPS stack documented in [infra/node/README.md](infra/node/README.md).
 
-## Failure model
+## Failure and recovery model
 
 - **Dashboard host fails:** redeploy the static build elsewhere; stored content and Kubo remain unaffected.
 - **Worker/API fails:** Kubo continues serving already published CIDs over the IPFS network.
@@ -122,6 +176,14 @@ Full instructions are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), with the port
 - **Single provider account is compromised:** no application can guarantee recovery; use separate providers, MFA/passkeys, offline recovery credentials, billing alerts, and tested backups.
 
 A single Kubo node is resilient and recoverable, but it is not high availability. Enable the optional second node when continuous public-network availability becomes important.
+
+Recovery is considered ready only after all three layers are proven:
+
+1. Encrypted D1 recovery pages decrypt and pass authenticated row-count verification.
+2. R2 blocks and canonical objects exist in a separately protected offsite copy.
+3. Checksummed Kubo CAR snapshots restore into a clean node and return the expected CID.
+
+The supplied systemd timer can schedule CAR exports, but monitoring backup age and running restore drills remain operator responsibilities.
 
 ## Project API example
 
@@ -176,6 +238,26 @@ Publishing to Kubo makes content available to the public IPFS network. OrbitCID 
 - [rclone crypt](https://rclone.org/crypt/)
 - [rclone S3 providers, including R2, AWS, and GCS](https://rclone.org/s3/)
 - [rclone Google Cloud Storage backend](https://rclone.org/googlecloudstorage/)
+
+## Contributing
+
+Focused pull requests are welcome.
+
+1. Fork the repository and create a focused branch.
+2. Never commit `.dev.vars`, deploy-time `.tfvars`, Terraform state, account IDs, operator domains or emails, tokens, generated dashboard assets, or Wrangler state.
+3. Run `npm ci`, `npm test`, `npm run typecheck`, `npm run build`, `npm audit --omit=dev`, and `npm run security:release`.
+4. Add tests for protocol, authorization, storage, recovery, or project-isolation changes.
+5. Explain security, compatibility, migration, and rollback impact in the pull request.
+
+Changes that weaken CID verification, authentication, project isolation, private/public visibility boundaries, recovery integrity, or secret handling will not be accepted.
+
+## Security reporting
+
+Security fixes are applied to the latest commit on `main`. Do not open a public issue for a suspected vulnerability. Use GitHub's private vulnerability reporting flow from the repository's **Security and quality** page and include the affected route or component, reproduction steps, impact, and suggested mitigation when available. Allow a reasonable investigation period before public disclosure.
+
+Self-hosters are responsible for protecting their provider accounts, restricting Cloudflare Access to intended identities, keeping secrets and state out of Git, applying updates, monitoring abuse and billing, and understanding that public IPFS content may be retained permanently by third-party peers.
+
+OrbitCID never requires a Cloudflare Global API Key. Use narrowly scoped API tokens and independent secrets for sessions, project-key hashing, recovery encryption, IPNS signing, replication tickets, and every Kubo bridge.
 
 ## License
 
