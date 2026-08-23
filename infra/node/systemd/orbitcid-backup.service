@@ -1,0 +1,14 @@
+[Unit]
+Description=OrbitCID encrypted Kubo CAR backup
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/orbitcid/infra/node
+ExecStart=/usr/bin/docker compose --profile backup run --rm backup
+TimeoutStartSec=0
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

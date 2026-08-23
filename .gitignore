@@ -27,3 +27,4 @@ public/index.html
 !*.tfvars.example
 .terraform/
 .DS_Store
+infra/node/rclone.conf

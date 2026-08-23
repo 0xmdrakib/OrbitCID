@@ -9,6 +9,7 @@ import { join } from "node:path";
 
 const port = Number(process.env.PORT || 8788);
 const kubo = process.env.KUBO_API || "http://kubo:5001";
+const kuboGateway = process.env.KUBO_GATEWAY || "http://kubo:8080";
 const token = process.env.BRIDGE_TOKEN || "";
 const adminOrigin = process.env.ADMIN_ORIGIN || "";
 const maxCarBytes = Number(process.env.MAX_CAR_BYTES || 536870912000);
@@ -65,9 +66,44 @@ async function readJson(request) {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
+async function swarmPeerCount() {
+  const response = await kuboPost("/api/v0/swarm/peers?verbose=false");
+  const body = await response.json();
+  return Array.isArray(body.Peers) ? body.Peers.length : 0;
+}
+
+async function proxyGateway(request, response) {
+  const requested = new URL(request.url || "/", "http://agent.invalid");
+  const match = requested.pathname.match(/^\/v1\/ipfs\/([A-Za-z0-9]+)(\/.*)?$/);
+  if (!match) { response.writeHead(404); response.end("not found"); return; }
+  const cid = match[1];
+  const rawSegments = (match[2] || "").split("/").filter(Boolean);
+  const segments = rawSegments.map((segment) => {
+    const decoded = decodeURIComponent(segment);
+    if (!decoded || decoded === "." || decoded === ".." || decoded.includes("\\") || decoded.includes("\0")) throw new Error("Gateway path is invalid");
+    return encodeURIComponent(decoded);
+  });
+  const target = new URL(`/ipfs/${cid}${segments.length ? `/${segments.join("/")}` : ""}`, kuboGateway);
+  const headers = new Headers();
+  for (const name of ["range", "if-none-match", "if-modified-since"]) {
+    const value = request.headers[name];
+    if (typeof value === "string") headers.set(name, value);
+  }
+  const upstream = await fetch(target, { method: request.method, headers, redirect: "error", signal: AbortSignal.timeout(10 * 60_000) });
+  const outputHeaders = { "cache-control": "no-store", "x-content-type-options": "nosniff" };
+  for (const name of ["content-type", "content-length", "content-range", "accept-ranges", "etag", "last-modified"]) {
+    const value = upstream.headers.get(name);
+    if (value) outputHeaders[name] = value;
+  }
+  response.writeHead(upstream.status, outputHeaders);
+  if (request.method === "HEAD" || !upstream.body) { response.end(); return; }
+  await pipeline(Readable.fromWeb(upstream.body), response);
+}
+
 const server = http.createServer(async (request, response) => {
   try {
-    if (request.url === "/healthz") { if (!authorized(request)) { response.writeHead(404); response.end("not found"); return; } response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }); response.end(JSON.stringify({ ok: true, peerId: await peerId() })); return; }
+    if (request.url === "/healthz") { if (!authorized(request)) { response.writeHead(404); response.end("not found"); return; } const [id, peers] = await Promise.all([peerId(), swarmPeerCount()]); response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" }); response.end(JSON.stringify({ ok: true, peerId: id, peers })); return; }
+    if (["GET", "HEAD"].includes(request.method || "") && request.url?.startsWith("/v1/ipfs/")) { if (!authorized(request)) { response.writeHead(404); response.end("not found"); return; } await proxyGateway(request, response); return; }
     if (request.method !== "POST" || request.url !== "/v1/pins") { response.writeHead(404); response.end("not found"); return; }
     if (!authorized(request)) { response.writeHead(401); response.end("unauthorized"); return; }
     const body = await readJson(request);
@@ -77,6 +113,7 @@ const server = http.createServer(async (request, response) => {
     response.writeHead(200, { "content-type": "application/json", "cache-control": "no-store" });
     response.end(JSON.stringify({ ok: true, cid: body.cid, action: body.action, peerId: await peerId() }));
   } catch (error) {
+    if (response.headersSent) { response.destroy(error instanceof Error ? error : undefined); return; }
     response.writeHead(500, { "content-type": "application/json", "cache-control": "no-store" });
     response.end(JSON.stringify({ error: error instanceof Error ? error.message : "bridge failure" }));
   }

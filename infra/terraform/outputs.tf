@@ -16,22 +16,12 @@ output "admin_access_aud" {
 
 output "resource_names" {
   value = {
-    blocks   = cloudflare_r2_bucket.blocks.name
-    objects  = cloudflare_r2_bucket.objects.name
-    staging  = cloudflare_r2_bucket.staging.name
-    recovery = cloudflare_r2_bucket.recovery.name
-    queue     = cloudflare_queue.jobs.name
-    queue_dlq = cloudflare_queue.jobs_dlq.name
-  }
-}
-
-output "kubo_nodes" {
-  value = {
-    for key, instance in google_compute_instance.kubo : key => {
-      name       = instance.name
-      zone       = instance.zone
-      external_ip = google_compute_address.kubo[key].address
-    }
+    blocks    = cloudflare_r2_bucket.blocks.name
+    objects   = cloudflare_r2_bucket.objects.name
+    staging   = cloudflare_r2_bucket.staging.name
+    recovery  = cloudflare_r2_bucket.recovery.name
+    queue     = cloudflare_queue.jobs.queue_name
+    queue_dlq = cloudflare_queue.jobs_dlq.queue_name
   }
 }
 

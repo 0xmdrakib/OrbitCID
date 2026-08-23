@@ -18,7 +18,7 @@ variable "domain" {
 }
 
 variable "resource_prefix" {
-  description = "Short lowercase prefix used for Cloudflare and Google Cloud resource names."
+  description = "Short lowercase prefix used for Cloudflare resource names."
   type        = string
   default     = "orbitcid"
 
@@ -38,82 +38,9 @@ variable "google_identity_provider_id" {
   type        = string
 }
 
-variable "google_project_id" {
-  description = "Billing-enabled Google Cloud project for the primary Kubo node and optional replica."
+variable "dashboard_domain" {
+  description = "Optional separate dashboard hostname, for example dashboard.example.com. Leave null when Worker Assets serve the dashboard on the admin domain."
   type        = string
-}
-
-variable "kubo_machine_type" {
-  type    = string
-  default = "e2-standard-2"
-}
-
-variable "kubo_disk_size_gb" {
-  type    = number
-  default = 100
-}
-
-variable "kubo_image" {
-  type    = string
-  default = "ipfs/kubo:v0.36.0"
-}
-
-variable "bridge_token_secondary" {
-  description = "Optional secondary bridge token. Required only when enable_secondary_node is true."
-  type      = string
-  sensitive = true
-  default   = null
-  nullable  = true
-
-  validation {
-    condition     = !var.enable_secondary_node || (var.bridge_token_secondary != null && length(var.bridge_token_secondary) >= 32)
-    error_message = "bridge_token_secondary must contain at least 32 characters when the secondary node is enabled."
-  }
-}
-
-variable "bridge_token_primary" {
-  description = "Primary replication bridge bearer token."
-  type      = string
-  sensitive = true
-
-  validation {
-    condition     = length(var.bridge_token_primary) >= 32
-    error_message = "bridge_token_primary must contain at least 32 characters."
-  }
-}
-
-variable "primary_region" {
-  type    = string
-  default = "asia-south1"
-}
-
-variable "primary_zone" {
-  type    = string
-  default = "asia-south1-a"
-}
-
-variable "primary_subnet_cidr" {
-  type    = string
-  default = "10.82.0.0/24"
-}
-
-variable "secondary_region" {
-  type    = string
-  default = "asia-southeast1"
-}
-
-variable "secondary_zone" {
-  type    = string
-  default = "asia-southeast1-b"
-}
-
-variable "secondary_subnet_cidr" {
-  type    = string
-  default = "10.81.0.0/24"
-}
-
-variable "enable_secondary_node" {
-  description = "Provision the optional secondary Kubo replica and its Cloudflare Tunnel."
-  type        = bool
-  default     = false
+  default     = null
+  nullable    = true
 }

@@ -28,6 +28,10 @@
 | Gateway active content | Separate origin, no cookies, `nosniff`, sandbox CSP, immutable policy |
 | Replay or brute force | Expiring signed tickets, single-use previews, atomic rate limits, scoped keys |
 | Kubo API exposure | API and gateway bind to loopback; only swarm ports are public; bridge uses Tunnel and bearer auth |
+| Object-storage outage | Worker attempts an authenticated, project-authorized Kubo fallback; agent gateway cannot be called anonymously |
+| VPS disk loss | Recursive pins are exported as checksummed portable CAR snapshots to an encrypted off-provider remote |
+| Backup-provider disclosure | rclone crypt encrypts content and names before upload; control-plane pages are separately protected by AES-256-GCM |
+| Corrupt or incomplete backup | CAR checksums, authenticated metadata pages, manifest row counts, and mandatory clean-node restore drills |
 | Accidental secret publication | Ignore rules, safe examples, release scanner, CI, and documented secret workflow |
 | Public-content deletion expectation | Explicit acknowledgement that third-party IPFS copies cannot be recalled |
 

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const ignoredDirectories = new Set([".git", ".wrangler", ".terraform", "node_modules", "dist", "coverage", "assets"]);
 const ignoredFiles = new Set([".dev.vars", ".env"]);
-const textExtensions = new Set(["", ".cjs", ".css", ".html", ".js", ".json", ".jsonc", ".md", ".mjs", ".sql", ".tf", ".tftpl", ".ts", ".tsx", ".txt", ".yaml", ".yml"]);
+const textExtensions = new Set(["", ".cjs", ".css", ".example", ".hcl", ".html", ".js", ".json", ".jsonc", ".md", ".mjs", ".service", ".sql", ".tf", ".tftpl", ".timer", ".ts", ".tsx", ".txt", ".yaml", ".yml"]);
 
 const forbidden = [
   { name: "development authentication bypass", pattern: /\bDEV_TOKEN\b|ipfs_dev_token|decodeJwtPayload/ },

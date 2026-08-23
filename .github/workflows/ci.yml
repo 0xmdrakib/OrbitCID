@@ -18,9 +18,21 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.9
       - run: npm ci
       - run: npm run security:release
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
       - run: npm audit --omit=dev --audit-level=high
+      - run: terraform fmt -check -recursive infra/terraform
+      - run: terraform fmt -check -recursive infra/terraform-google
+      - run: terraform -chdir=infra/terraform init -backend=false -input=false && terraform -chdir=infra/terraform validate
+      - run: terraform -chdir=infra/terraform-google init -backend=false -input=false && terraform -chdir=infra/terraform-google validate
+      - run: docker compose --env-file .env.example config --quiet
+        working-directory: infra/node
+      - run: docker compose --env-file .env.example --profile backup --profile tunnel config --quiet
+        working-directory: infra/node
+      - run: bash -n infra/kubo/startup.sh.tftpl infra/node/backup/backup.sh infra/node/backup/restore.sh infra/node/kubo-init/001-orbitcid.sh

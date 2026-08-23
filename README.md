@@ -1,8 +1,8 @@
 # OrbitCID
 
-OrbitCID is a secure, self-hosted IPFS-compatible storage and publishing platform built for Cloudflare. It combines verified CIDv1/UnixFS storage, private project namespaces, an owner dashboard, authenticated machine APIs, CAR import/export, and an optional persistent Kubo node for publishing selected content to the public IPFS network.
+OrbitCID is a secure, self-hosted IPFS storage and publishing platform. A Cloudflare control plane provides verified uploads, project isolation, authentication, gateway acceleration, and recovery metadata; a persistent Kubo data plane on the operator's server provides the real IPFS WAN DHT, Bitswap, libp2p, pinning, and public content advertisement.
 
-The repository contains no hosted service URL and no shared public gateway. Every operator deploys an independent installation under their own Cloudflare and Google Cloud accounts.
+The repository contains no hosted service URL and no shared public gateway. Every operator deploys an independent installation. The dashboard can share the Worker origin or run as a static application on Vercel, Cloudflare Pages, or another static host. Kubo can run on GCP, AWS, Azure, DigitalOcean, Hetzner, a dedicated server, NAS, or any suitable Linux VPS.
 
 ## Why OrbitCID
 
@@ -14,7 +14,9 @@ The repository contains no hosted service URL and no shared public gateway. Ever
 - Cloudflare Access Google identity plus an independent revocable password session
 - Named, scoped, expiring, rotatable, immediately revocable project API keys
 - Client-side Argon2id and AES-256-GCM sealed vault mode
-- Optional single Kubo primary node; a second replica can be enabled later without changing URLs or keys
+- Portable real Kubo primary node; a second replica can be enabled later without changing URLs or keys
+- Encrypted, provider-neutral CAR backups through rclone to R2, AWS S3, GCS, or other supported storage
+- Private Worker-to-Kubo fallback retrieval when the object-storage path is unavailable
 - Warm, responsive owner dashboard with copy-ready JavaScript, cURL, resumable, and NFT integration examples
 
 ## Architecture
@@ -23,16 +25,39 @@ The repository contains no hosted service URL and no shared public gateway. Ever
 Owner / project client
         |
         v
-Cloudflare Access + OrbitCID Worker
+Dashboard (same Worker, Vercel, Pages, or static host)
+        |
+        v
+Cloudflare Access + OrbitCID API Worker
         |--- D1 metadata, sessions, projects, pins, audit
         |--- R2 verified blocks, objects, staging, recovery
         |--- Durable Objects for locks and rate limits
         |--- Queues / Workflows for verification and replication
         |
-        +--- optional signed CAR delivery ---> private bridge ---> Kubo ---> public IPFS
+        +--- signed CAR delivery ---> private node agent ---> persistent Kubo
+                                                        |-- WAN DHT / Bitswap / libp2p
+                                                        |-- local fallback gateway
+                                                        +-- encrypted CAR snapshots ---> R2 / S3 / GCS / other remote
 ```
 
-R2 is authoritative. The optional Kubo node is a public-network replica for content that an operator explicitly publishes. The Worker itself is not a libp2p peer and intentionally returns `501 NOT_SUPPORTED` for swarm, DHT, Bitswap, P2P, config, and daemon-control commands.
+The two data paths are intentional. R2 keeps a verified recovery and fast-gateway copy; Kubo is the network-facing IPFS data plane for explicitly public roots. If R2 retrieval fails, the Worker can fall back through the authenticated node agent. If the Kubo server is lost, it can be rebuilt from Worker-managed content or encrypted CAR snapshots.
+
+## Is this true IPFS?
+
+**Yes, when the Kubo data plane is deployed and reachable on swarm port 4001/TCP+UDP.** Kubo joins the public Amino DHT, advertises pinned CIDs, and exchanges blocks with other peers through Bitswap. A third-party IPFS peer can retrieve published content without using the OrbitCID HTTP gateway.
+
+The Worker by itself remains an IPFS-compatible HTTP control plane, not a libp2p peer. It intentionally returns `501 NOT_SUPPORTED` for direct swarm, DHT, Bitswap, P2P, config, and daemon-control commands. OrbitCID never disguises this boundary.
+
+## Deployment choices
+
+| Layer | Supported placement | Purpose |
+| --- | --- | --- |
+| Dashboard | Worker assets, Vercel, Cloudflare Pages, any static HTTPS host | Owner UI only |
+| API/control plane | Cloudflare Worker, D1, R2, Durable Objects, Queues/Workflows | Auth, policy, verification, fast gateway, recovery |
+| IPFS data plane | Any stable Linux VPS/server with Docker, or the optional GCP Terraform module | Real Kubo DHT/Bitswap/libp2p node |
+| Backup | Encrypted rclone remote over R2, AWS S3, Google Cloud Storage, or another backend | Portable CAR snapshots and disaster recovery |
+
+For a separate dashboard host, use a custom HTTPS hostname under the same registrable domain as the API, set `VITE_API_ORIGIN` at build time, and set the Worker's `DASHBOARD_ORIGIN` to that exact origin. This same-site requirement preserves the strict admin-session cookie; a default cross-site `*.vercel.app` hostname is intentionally unsupported for authenticated production sessions. Protect both origins with the intended Cloudflare Access policy. API keys belong only in server-side applications, never in a public frontend bundle.
 
 ## Security model
 
@@ -54,7 +79,9 @@ See [SECURITY.md](SECURITY.md) and [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) 
 - R2 enabled in that account
 - Cloudflare Access with a Google or other supported identity provider
 - Terraform 1.7+ for the provided infrastructure, or equivalent manual provisioning
-- Optional: a billing-enabled Google Cloud project for public Kubo replication
+- A persistent Linux server with at least 2 CPU cores, 6-8 GB RAM, adequate SSD capacity, and a reachable public swarm port for true IPFS mode
+- Optional: a billing-enabled Google Cloud project when using the provided infrastructure module
+- Optional but strongly recommended: an encrypted rclone remote for off-server CAR backups
 
 Workers Free can be used for development or light personal workloads. A paid Workers plan is optional and provides additional production headroom; OrbitCID does not require it merely to start.
 
@@ -75,15 +102,26 @@ To test the authenticated dashboard end-to-end, use a staging hostname protected
 
 ## Deployment overview
 
-1. Copy the Terraform example and set your own account, zone, domain, allowed identity, project, and generated bridge token.
-2. Apply the Terraform configuration to create private R2 buckets, D1, KV, Queues, Access policies, Tunnel, and the optional Kubo primary.
-3. Replace the D1 and KV placeholder IDs and example hostnames in `wrangler.jsonc` with your Terraform outputs.
-4. Generate independent production secrets and store them with `wrangler secret put`.
-5. Build the dashboard, apply remote migrations, and deploy the Worker.
-6. Attach the admin and gateway custom domains. Keep the gateway outside Cloudflare Access; keep the admin hostname protected.
-7. Start with all projects private. Enable public publishing only after the gateway and Kubo health checks pass.
+1. Deploy the dashboard on the Worker origin or build it for Vercel/Pages with `VITE_API_ORIGIN`.
+2. Create the Cloudflare control-plane resources with Terraform or manually, replace the safe placeholders in `wrangler.jsonc`, and store independent secrets.
+3. Apply D1 migrations and deploy the Worker API. Protect its admin routes with Cloudflare Access; leave only the isolated public gateway anonymous.
+4. Deploy `infra/node` on any suitable VPS, or use the separate optional `infra/terraform-google` root. Keep Kubo RPC and its local gateway private; expose only swarm `4001/TCP+UDP`.
+5. Connect the node agent through Cloudflare Tunnel using a unique bridge token.
+6. Configure an encrypted rclone remote, run a CAR backup, and prove restore on a clean node.
+7. Start with all projects private. Enable public publishing only after Worker, Kubo, external-peer retrieval, fallback, and backup health checks pass.
 
-Full instructions are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+Full instructions are in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), with the portable VPS stack documented in [infra/node/README.md](infra/node/README.md).
+
+## Failure model
+
+- **Dashboard host fails:** redeploy the static build elsewhere; stored content and Kubo remain unaffected.
+- **Worker/API fails:** Kubo continues serving already published CIDs over the IPFS network.
+- **R2 retrieval fails:** authorized requests can fall back to the primary Kubo gateway through the private agent.
+- **Kubo VM fails:** the Cloudflare gateway copy continues serving permitted content while the node is rebuilt from CAR backups or verified control-plane storage.
+- **VPS disk is lost:** restore timestamped, checksummed CAR snapshots to a fresh Kubo repo.
+- **Single provider account is compromised:** no application can guarantee recovery; use separate providers, MFA/passkeys, offline recovery credentials, billing alerts, and tested backups.
+
+A single Kubo node is resilient and recoverable, but it is not high availability. Enable the optional second node when continuous public-network availability becomes important.
 
 ## Project API example
 
@@ -128,6 +166,16 @@ The Kubo-compatible facade includes `add`, `cat`, `get`, `ls`, `block/get`, `blo
 ## Public IPFS warning
 
 Publishing to Kubo makes content available to the public IPFS network. OrbitCID can remove its own gateway authorization and unpin from its own nodes, but it cannot delete copies already retained by third-party peers. Do not publish confidential plaintext. Public sealed content exposes ciphertext only, but availability and traffic metadata may still be observable.
+
+## Operator references
+
+- [Install and operate Kubo](https://docs.ipfs.tech/install/command-line/)
+- [Kubo RPC security](https://docs.ipfs.tech/reference/kubo/rpc/)
+- [IPFS nodes, DHT, and Bitswap](https://docs.ipfs.tech/concepts/nodes/)
+- [IPFS privacy and encryption](https://docs.ipfs.tech/concepts/privacy-and-encryption/)
+- [rclone crypt](https://rclone.org/crypt/)
+- [rclone S3 providers, including R2, AWS, and GCS](https://rclone.org/s3/)
+- [rclone Google Cloud Storage backend](https://rclone.org/googlecloudstorage/)
 
 ## License
 

@@ -4,11 +4,11 @@ resource "random_id" "tunnel_secret" {
 }
 
 resource "cloudflare_zero_trust_tunnel_cloudflared" "kubo" {
-  for_each   = local.kubo_nodes
-  account_id = var.account_id
-  name       = "${var.resource_prefix}-${each.key}"
-  config_src = "cloudflare"
-  secret     = random_id.tunnel_secret[each.key].b64_std
+  for_each      = local.kubo_nodes
+  account_id    = var.account_id
+  name          = "${var.resource_prefix}-${each.key}"
+  config_src    = "cloudflare"
+  tunnel_secret = random_id.tunnel_secret[each.key].b64_std
 }
 
 data "cloudflare_zero_trust_tunnel_cloudflared_token" "kubo" {
@@ -22,16 +22,20 @@ resource "cloudflare_zero_trust_tunnel_cloudflared_config" "kubo" {
   account_id = var.account_id
   tunnel_id  = cloudflare_zero_trust_tunnel_cloudflared.kubo[each.key].id
 
-  config {
-    ingress_rule {
-      hostname = "kubo-${each.key}-bridge.${var.domain}"
-      service  = "http://bridge:8788"
-      origin_request {
-        connect_timeout = 10
-        no_tls_verify    = false
-      }
-    }
-    ingress_rule { service = "http_status:404" }
+  config = {
+    ingress = [
+      {
+        hostname = "kubo-${each.key}-bridge.${var.domain}"
+        service  = "http://bridge:8788"
+        origin_request = {
+          connect_timeout = 10
+          no_tls_verify   = false
+        }
+      },
+      {
+        service = "http_status:404"
+      },
+    ]
   }
 }
 

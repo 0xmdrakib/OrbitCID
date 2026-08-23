@@ -9,3 +9,4 @@ main{max-width:1480px;width:100%;margin:auto;padding:56px 34px 40px}.page-header
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important;transition-duration:.01ms!important}}
 .project-edit{margin-top:20px;padding:18px;border:1px solid var(--line);border-radius:24px;background:#fff}.project-edit h4{margin:0}
 .navigation-editor{margin-bottom:20px}.navigation-row{min-height:60px;display:grid;grid-template-columns:42px minmax(130px,1fr) auto auto auto minmax(110px,auto);align-items:center;gap:9px;border-top:1px solid var(--soft)}.navigation-row button:disabled{opacity:.35}@media(max-width:680px){.navigation-row{grid-template-columns:38px 1fr auto}.navigation-row .tag{grid-column:2}.navigation-row button{grid-row:2}.navigation-row button:last-child{grid-column:auto/span 1}}
+.access-link{display:inline-flex;align-items:center;text-decoration:none;margin-top:14px}

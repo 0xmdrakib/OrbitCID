@@ -26,6 +26,7 @@ export interface Env {
   ACCESS_AUD?: string;
   ACCESS_TEAM_DOMAIN?: string;
   APP_ORIGIN?: string;
+  DASHBOARD_ORIGIN?: string;
   ADMIN_PASSWORD_HASH?: string;
   SESSION_SECRET?: string;
   GATEWAY_HOST: string;

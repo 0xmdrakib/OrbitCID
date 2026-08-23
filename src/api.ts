@@ -357,9 +357,9 @@ export async function systemHealth(c: AppContext): Promise<Response> {
     if (!url || !token) throw new Error(`${label} bridge URL or token is not configured`);
     const response = await fetch(new URL("/healthz", url), { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(5_000) });
     if (!response.ok) throw new Error(`${label} bridge returned ${response.status}`);
-    const body = await response.json<{ peerId?: string }>();
+    const body = await response.json<{ peerId?: string; peers?: number }>();
     if (!body.peerId) throw new Error(`${label} Kubo peer ID is unavailable`);
-    return `${label} peer ${body.peerId}`;
+    return `${label} peer ${body.peerId} · ${body.peers ?? 0} swarm peers`;
     });
   };
   const [d1, objects, blocks, cache, queue, secondary, primary] = await Promise.all([

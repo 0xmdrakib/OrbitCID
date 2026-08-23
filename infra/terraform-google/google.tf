@@ -1,21 +1,22 @@
 locals {
   primary_kubo_nodes = {
     primary = {
-      region            = var.primary_region
-      zone              = var.primary_zone
-      subnet_cidr       = var.primary_subnet_cidr
-      bridge_token      = var.bridge_token_primary
+      region       = var.primary_region
+      zone         = var.primary_zone
+      subnet_cidr  = var.primary_subnet_cidr
+      bridge_token = var.bridge_token_primary
     }
   }
   secondary_kubo_nodes = var.enable_secondary_node ? {
     secondary = {
-      region            = var.secondary_region
-      zone              = var.secondary_zone
-      subnet_cidr       = var.secondary_subnet_cidr
-      bridge_token      = coalesce(var.bridge_token_secondary, "")
+      region       = var.secondary_region
+      zone         = var.secondary_zone
+      subnet_cidr  = var.secondary_subnet_cidr
+      bridge_token = coalesce(var.bridge_token_secondary, "")
     }
   } : {}
-  kubo_nodes = merge(local.primary_kubo_nodes, local.secondary_kubo_nodes)
+  kubo_nodes   = merge(local.primary_kubo_nodes, local.secondary_kubo_nodes)
+  admin_domain = "ipfs.${var.domain}"
 }
 
 resource "google_project_service" "compute" {
@@ -44,14 +45,21 @@ resource "google_compute_subnetwork" "ipfs" {
 }
 
 resource "google_compute_firewall" "swarm" {
-  name    = "${var.resource_prefix}-swarm"
-  network = google_compute_network.ipfs.name
-  direction = "INGRESS"
+  name          = "${var.resource_prefix}-swarm"
+  network       = google_compute_network.ipfs.name
+  direction     = "INGRESS"
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["${var.resource_prefix}-kubo"]
 
-  allow { protocol = "tcp" ports = ["4001"] }
-  allow { protocol = "udp" ports = ["4001"] }
+  allow {
+    protocol = "tcp"
+    ports    = ["4001"]
+  }
+
+  allow {
+    protocol = "udp"
+    ports    = ["4001"]
+  }
 }
 
 resource "google_compute_firewall" "iap_ssh" {
@@ -60,7 +68,10 @@ resource "google_compute_firewall" "iap_ssh" {
   direction     = "INGRESS"
   source_ranges = ["35.235.240.0/20"]
   target_tags   = ["${var.resource_prefix}-kubo"]
-  allow { protocol = "tcp" ports = ["22"] }
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
 }
 
 resource "google_service_account" "kubo" {
@@ -81,19 +92,19 @@ resource "google_project_iam_member" "kubo_logging" {
 }
 
 resource "google_compute_address" "kubo" {
-  for_each   = local.kubo_nodes
-  name       = "${var.resource_prefix}-${each.key}"
-  region     = each.value.region
+  for_each     = local.kubo_nodes
+  name         = "${var.resource_prefix}-${each.key}"
+  region       = each.value.region
   address_type = "EXTERNAL"
   network_tier = "PREMIUM"
 }
 
 resource "google_compute_disk" "kubo_data" {
-  for_each = local.kubo_nodes
-  name     = "${var.resource_prefix}-${each.key}-data"
-  zone     = each.value.zone
-  type     = "pd-ssd"
-  size     = var.kubo_disk_size_gb
+  for_each                  = local.kubo_nodes
+  name                      = "${var.resource_prefix}-${each.key}-data"
+  zone                      = each.value.zone
+  type                      = "pd-ssd"
+  size                      = var.kubo_disk_size_gb
   physical_block_size_bytes = 4096
 }
 
@@ -102,9 +113,22 @@ resource "google_compute_resource_policy" "snapshots" {
   name     = "${var.resource_prefix}-${each.key}-snapshots"
   region   = each.value.region
   snapshot_schedule_policy {
-    schedule { daily_schedule { days_in_cycle = 1 start_time = "03:00" } }
-    retention_policy { max_retention_days = 14 on_source_disk_delete = "KEEP_AUTO_SNAPSHOTS" }
-    snapshot_properties { storage_locations = [each.value.region] guest_flush = true }
+    schedule {
+      daily_schedule {
+        days_in_cycle = 1
+        start_time    = "03:00"
+      }
+    }
+
+    retention_policy {
+      max_retention_days    = 14
+      on_source_disk_delete = "KEEP_AUTO_SNAPSHOTS"
+    }
+
+    snapshot_properties {
+      storage_locations = [each.value.region]
+      guest_flush       = true
+    }
   }
 }
 
@@ -167,5 +191,8 @@ resource "google_compute_instance" "kubo" {
   }
 
   deletion_protection = true
-  depends_on = [google_project_service.compute, google_compute_disk_resource_policy_attachment.snapshots]
+  depends_on = [
+    google_project_service.compute,
+    google_compute_disk_resource_policy_attachment.snapshots,
+  ]
 }

@@ -15,6 +15,7 @@
   "vars": {
     "ENVIRONMENT": "production",
     "APP_ORIGIN": "https://ipfs.example.com",
+    "DASHBOARD_ORIGIN": "https://ipfs.example.com",
     "GATEWAY_HOST": "gateway.example.com",
     "MAX_UPLOAD_BYTES": "536870912000",
     "STORAGE_QUOTA_BYTES": "10737418240",

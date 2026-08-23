@@ -2,7 +2,7 @@
   "name": "orbitcid",
   "version": "0.1.0",
   "private": true,
-  "description": "Secure, self-hosted IPFS-compatible storage and publishing on Cloudflare with optional Kubo replication",
+  "description": "Secure, self-hosted IPFS control plane with a portable Kubo data plane and encrypted disaster recovery",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -20,6 +20,7 @@
     "admin:hash-password": "node scripts/hash-admin-password.mjs",
     "secret:generate": "node scripts/generate-secret.mjs",
     "security:release": "node scripts/check-public-release.mjs",
+    "recovery:verify": "node scripts/verify-recovery.mjs",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

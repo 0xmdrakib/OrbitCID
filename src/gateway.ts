@@ -146,7 +146,10 @@ export async function gatewayResponse(c: Context<{ Bindings: Env; Variables: Var
     }
     if (resolved.type === "directory") {
       const block = await getBlock(c.env, resolved.cid);
-      if (!block) return jsonError(c, 404, "BLOCK_NOT_FOUND", "Directory block is missing");
+      if (!block) {
+        const fallback = await kuboFallbackResponse(c, root.toString(), path, !!options.publicOnly);
+        return fallback ?? jsonError(c, 404, "BLOCK_NOT_FOUND", "Directory block is missing");
+      }
       const node = dagPb.decode(block.bytes);
       const body = JSON.stringify({ cid: resolved.cid.toString(), type: "directory", entries: node.Links.map((link) => ({ name: link.Name, cid: link.Hash.toString(), size: Number(link.Tsize ?? 0) })) });
       const headers = new Headers({ "Content-Type": "application/json; charset=UTF-8" });
@@ -157,7 +160,18 @@ export async function gatewayResponse(c: Context<{ Bindings: Env; Variables: Var
     }
     const object = await findObject(c.env, projectId, resolved.cid.toString());
     if (object) {
-      const response = await directObjectResponse(c.req.raw, c.env, object, resolved.cid.toString(), !!options.publicOnly);
+      let response: Response;
+      try {
+        response = await directObjectResponse(c.req.raw, c.env, object, resolved.cid.toString(), !!options.publicOnly);
+      } catch {
+        const fallback = await kuboFallbackResponse(c, root.toString(), path, !!options.publicOnly);
+        if (fallback) { trackResponse(c, projectId, Number(fallback.headers.get("Content-Length") ?? 0)); return fallback; }
+        throw new Error("Primary object storage and Kubo fallback are unavailable");
+      }
+      if (response.status === 404) {
+        const fallback = await kuboFallbackResponse(c, root.toString(), path, !!options.publicOnly);
+        if (fallback) { trackResponse(c, projectId, Number(fallback.headers.get("Content-Length") ?? 0)); return fallback; }
+      }
       trackResponse(c, projectId, response.ok ? Number(response.headers.get("Content-Length") ?? object.size) : 0, !response.ok);
       return response;
     }
@@ -176,7 +190,50 @@ export async function gatewayResponse(c: Context<{ Bindings: Env; Variables: Var
     }
     return new Response(trackedStream(c, projectId, unixfsStream(c.env, resolved.cid)), { headers });
   } catch (error) {
+    const fallback = await kuboFallbackResponse(c, root.toString(), path, !!options.publicOnly);
+    if (fallback) {
+      trackResponse(c, projectId, Number(fallback.headers.get("Content-Length") ?? 0));
+      return fallback;
+    }
     if (projectId) trackResponse(c, projectId, 0, true);
     return jsonError(c, 404, "IPFS_NOT_FOUND", error instanceof Error ? error.message : "Content was not found");
   }
+}
+
+async function kuboFallbackResponse(
+  c: Context<{ Bindings: Env; Variables: Variables }>,
+  cid: string,
+  path: string,
+  isPublic: boolean
+): Promise<Response | null> {
+  const segments = path.split("/").filter(Boolean).map((segment) => encodeURIComponent(segment));
+  const candidates = [
+    { id: "primary", url: c.env.KUBO_NODE_PRIMARY_URL, token: c.env.KUBO_NODE_PRIMARY_TOKEN },
+    { id: "secondary", url: c.env.KUBO_NODE_SECONDARY_URL, token: c.env.KUBO_NODE_SECONDARY_TOKEN }
+  ];
+  for (const node of candidates) {
+    if (!node.url || !node.token) continue;
+    const url = new URL(`/v1/ipfs/${encodeURIComponent(cid)}${segments.length ? `/${segments.join("/")}` : ""}`, node.url);
+    const requestHeaders = new Headers({ Authorization: `Bearer ${node.token}` });
+    for (const name of ["Range", "If-None-Match", "If-Modified-Since"]) {
+      const value = c.req.header(name);
+      if (value) requestHeaders.set(name, value);
+    }
+    let upstream: Response;
+    try {
+      upstream = await fetch(url, { method: c.req.method, headers: requestHeaders, redirect: "error", signal: AbortSignal.timeout(10 * 60_000) });
+    } catch {
+      continue;
+    }
+    if (!upstream.ok && ![206, 304].includes(upstream.status)) continue;
+    const headers = new Headers();
+    for (const name of ["Content-Type", "Content-Length", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified"]) {
+      const value = upstream.headers.get(name);
+      if (value) headers.set(name, value);
+    }
+    headers.set("X-OrbitCID-Source", `kubo-${node.id}`);
+    securityHeaders(headers, headers.get("Content-Type") ?? "application/octet-stream", cid, isPublic);
+    return new Response(c.req.method === "HEAD" || upstream.status === 304 ? null : upstream.body, { status: upstream.status, headers });
+  }
+  return null;
 }

@@ -1,0 +1,88 @@
+name: orbitcid-node
+
+services:
+  kubo:
+    image: ${KUBO_IMAGE:-ipfs/kubo:v0.43.0@sha256:63f5502f7a01b82a675e45bae81b2f5dfa90248ec4a86cd0a58c218347e1f2d2}
+    restart: unless-stopped
+    environment:
+      IPFS_PROFILE: server
+    volumes:
+      - ipfs-data:/data/ipfs
+      - ./kubo-init:/container-init.d:ro
+    ports:
+      - "${SWARM_PORT:-4001}:4001/tcp"
+      - "${SWARM_PORT:-4001}:4001/udp"
+      - "127.0.0.1:${KUBO_API_PORT:-5001}:5001"
+      - "127.0.0.1:${KUBO_GATEWAY_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+
+  agent:
+    image: ${AGENT_IMAGE:-node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32}
+    restart: unless-stopped
+    read_only: true
+    environment:
+      KUBO_API: http://kubo:5001
+      KUBO_GATEWAY: http://kubo:8080
+      PORT: "8788"
+      BRIDGE_TOKEN: ${BRIDGE_TOKEN:?BRIDGE_TOKEN is required}
+      ADMIN_ORIGIN: ${ADMIN_ORIGIN:?ADMIN_ORIGIN is required}
+      MAX_CAR_BYTES: ${MAX_CAR_BYTES:-536870912000}
+      TMPDIR: /var/lib/orbitcid
+    volumes:
+      - ../kubo/bridge.mjs:/app/bridge.mjs:ro
+      - agent-staging:/var/lib/orbitcid
+    command: ["node", "/app/bridge.mjs"]
+    depends_on:
+      kubo:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8788/healthz',{headers:{Authorization:'Bearer '+process.env.BRIDGE_TOKEN}}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+
+  tunnel:
+    image: ${CLOUDFLARED_IMAGE:-cloudflare/cloudflared:2026.8.2@sha256:0aa26e284f05e6c77ae375b8c9c11d9eb6a448fb7bcd8d40f31cb6176189eb38}
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    read_only: true
+    command: ["tunnel", "--no-autoupdate", "run", "--token", "${TUNNEL_TOKEN}"]
+    depends_on:
+      agent:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+  backup:
+    build:
+      context: ./backup
+    profiles: ["backup"]
+    environment:
+      KUBO_API: http://kubo:5001
+      RCLONE_REMOTE: ${RCLONE_REMOTE:?RCLONE_REMOTE is required}
+      RCLONE_CONFIG: /config/rclone/rclone.conf
+      RCLONE_CONFIG_PASS: ${RCLONE_CONFIG_PASS:-}
+      RETENTION_DAYS: ${RETENTION_DAYS:-30}
+    volumes:
+      - backup-cache:/backups
+      - ${RCLONE_CONFIG_PATH:-./rclone.conf}:/config/rclone/rclone.conf:ro
+    depends_on:
+      kubo:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  ipfs-data:
+  agent-staging:
+  backup-cache:

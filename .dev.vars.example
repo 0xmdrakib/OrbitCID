@@ -1,5 +1,7 @@
 ENVIRONMENT=staging
 APP_ORIGIN=https://ipfs.example.com
+DASHBOARD_ORIGIN=https://ipfs.example.com
+# For a separate dashboard deployment, use its exact same-site custom origin.
 ALLOWED_EMAIL=you@gmail.com
 ACCESS_TEAM_DOMAIN=your-team.cloudflareaccess.com
 ACCESS_AUD=replace-with-access-application-audience-tag

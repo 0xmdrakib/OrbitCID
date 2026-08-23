@@ -18,3 +18,11 @@ updates:
     directory: /infra/terraform
     schedule:
       interval: monthly
+  - package-ecosystem: terraform
+    directory: /infra/terraform-google
+    schedule:
+      interval: monthly
+  - package-ecosystem: docker
+    directory: /infra/node/backup
+    schedule:
+      interval: monthly

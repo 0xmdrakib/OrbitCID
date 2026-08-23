@@ -98,25 +98,41 @@ async function garbageCollect(env: Env): Promise<void> {
 }
 
 async function recoverySnapshot(env: Env): Promise<void> {
-  const [pins, names, mfs, tokens] = await Promise.all([
-    all<Record<string, unknown>>(env.DB.prepare("SELECT * FROM pins")),
-    all<Record<string, unknown>>(env.DB.prepare("SELECT * FROM ipns_names")),
-    all<Record<string, unknown>>(env.DB.prepare("SELECT * FROM mfs_entries")),
-    all<Record<string, unknown>>(env.DB.prepare("SELECT id, project_id, prefix, name, scopes_json, expires_at, revoked_at, created_at FROM project_api_keys"))
-  ]);
   if (!env.RECOVERY_KEY) throw new Error("RECOVERY_KEY is not configured");
   const keyBytes = base64ToBytes(env.RECOVERY_KEY);
   if (keyBytes.length !== 32) throw new Error("RECOVERY_KEY must decode to exactly 32 bytes");
   const keyMaterial = new Uint8Array(keyBytes.length); keyMaterial.set(keyBytes);
   const key = await crypto.subtle.importKey("raw", keyMaterial, { name: "AES-GCM" }, false, ["encrypt"]);
-  const iv = crypto.getRandomValues(new Uint8Array(12));
-  const plaintext = new TextEncoder().encode(JSON.stringify({ version: 1, createdAt: nowIso(), pins, names, mfs, tokens }));
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, plaintext));
-  const envelope = JSON.stringify({ version: 1, algorithm: "AES-256-GCM", iv: bytesToBase64(iv), ciphertext: bytesToBase64(ciphertext) });
   const timestamp = nowIso().replace(/[:.]/g, "-");
-  await env.RECOVERY.put(`snapshots/${timestamp}.recovery.json`, envelope, {
-    httpMetadata: { contentType: "application/vnd.orbitcid.recovery+json" }
-  });
+  const prefix = `snapshots/${timestamp}`;
+  const tables = ["projects", "uploads", "upload_chunks", "upload_parts", "blocks", "block_locations", "objects", "pins", "pin_blocks", "project_blocks", "project_objects", "mfs_entries", "mfs_versions", "ipns_names", "jobs", "project_api_keys", "quotas", "project_publications", "project_replicas", "navigation_preferences", "usage_daily", "audit_logs"] as const;
+  const manifest: { version: number; createdAt: string; tables: Array<{ name: string; rows: number; pages: string[] }> } = { version: 2, createdAt: nowIso(), tables: [] };
+  const encrypt = async (value: unknown, aad: string): Promise<string> => {
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const additionalData = new TextEncoder().encode(aad);
+    const plaintext = new TextEncoder().encode(JSON.stringify(value));
+    const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData }, key, plaintext));
+    return JSON.stringify({ version: 2, algorithm: "AES-256-GCM", aad, iv: bytesToBase64(iv), ciphertext: bytesToBase64(ciphertext) });
+  };
+  for (const table of tables) {
+    let offset = 0;
+    const entry = { name: table, rows: 0, pages: [] as string[] };
+    while (true) {
+      const rows = await all<Record<string, unknown>>(env.DB.prepare(`SELECT * FROM ${table} ORDER BY rowid LIMIT 250 OFFSET ?`).bind(offset));
+      if (!rows.length) break;
+      const page = String(entry.pages.length).padStart(6, "0");
+      const objectKey = `${prefix}/${table}/${page}.json.enc`;
+      await env.RECOVERY.put(objectKey, await encrypt({ table, offset, rows }, objectKey), { httpMetadata: { contentType: "application/vnd.orbitcid.recovery+json" } });
+      entry.pages.push(objectKey);
+      entry.rows += rows.length;
+      offset += rows.length;
+      if (rows.length < 250) break;
+    }
+    manifest.tables.push(entry);
+  }
+  const manifestKey = `${prefix}/manifest.json.enc`;
+  await env.RECOVERY.put(manifestKey, await encrypt(manifest, manifestKey), { httpMetadata: { contentType: "application/vnd.orbitcid.recovery+json" } });
+  await env.RECOVERY.put("snapshots/latest.txt", manifestKey, { httpMetadata: { contentType: "text/plain; charset=utf-8" } });
 }
 
 export async function handleJob(env: Env, message: JobMessage): Promise<void> {

@@ -225,8 +225,8 @@ export const csrfMiddleware: MiddlewareHandler<{ Bindings: Env; Variables: Varia
     return;
   }
   const origin = c.req.header("Origin");
-  const expected = c.env.APP_ORIGIN;
-  if (!expected) return jsonError(c, 503, "APP_ORIGIN_NOT_CONFIGURED", "APP_ORIGIN must be configured");
+  const expected = c.env.DASHBOARD_ORIGIN ?? c.env.APP_ORIGIN;
+  if (!expected) return jsonError(c, 503, "DASHBOARD_ORIGIN_NOT_CONFIGURED", "DASHBOARD_ORIGIN or APP_ORIGIN must be configured");
   if (!origin || origin !== expected) return jsonError(c, 403, "INVALID_ORIGIN", "A same-origin browser request is required");
   await next();
 };

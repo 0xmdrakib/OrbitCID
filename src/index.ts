@@ -101,13 +101,13 @@ async function servePublicProjectName(
 }
 
 app.use("*", async (c, next) => {
-  const origin = c.env.APP_ORIGIN ?? new URL(c.req.url).origin;
+  const origin = c.env.DASHBOARD_ORIGIN ?? c.env.APP_ORIGIN ?? new URL(c.req.url).origin;
   if (isPublicGateway(c)) {
     return cors({
       origin: "*",
       allowHeaders: ["Content-Type", "Range", "If-None-Match"],
       allowMethods: ["GET", "HEAD", "OPTIONS"],
-      exposeHeaders: ["ETag", "Content-Range", "Content-Length", "Accept-Ranges"],
+      exposeHeaders: ["ETag", "Content-Range", "Content-Length", "Accept-Ranges", "X-OrbitCID-Source"],
       maxAge: 86_400,
       credentials: false
     })(c, next);
@@ -116,7 +116,7 @@ app.use("*", async (c, next) => {
     origin,
     allowHeaders: ["Authorization", "Content-Type", "X-Chunk-Cids", "CF-Access-Jwt-Assertion"],
     allowMethods: ["GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"],
-    exposeHeaders: ["ETag", "Content-Range", "X-Request-Id"],
+    exposeHeaders: ["ETag", "Content-Range", "X-Request-Id", "X-OrbitCID-Source"],
     maxAge: 86_400,
     credentials: true
   })(c, next);
@@ -160,7 +160,7 @@ app.get("/api/v1/session/access", async (c) => {
 });
 app.post("/api/v1/session/logout", csrfMiddleware, logoutAdmin);
 app.get("/api/v1/session/me", (c) => c.json({ authenticated: true, actor: c.get("auth").actor, method: c.get("auth").method }));
-app.get("/api/v1/config", requireScope("read"), (c) => c.json({ gatewayHost: c.env.GATEWAY_HOST, appOrigin: c.env.APP_ORIGIN ?? new URL(c.req.url).origin }));
+app.get("/api/v1/config", requireScope("read"), (c) => c.json({ gatewayHost: c.env.GATEWAY_HOST, appOrigin: c.env.APP_ORIGIN ?? new URL(c.req.url).origin, dashboardOrigin: c.env.DASHBOARD_ORIGIN ?? c.env.APP_ORIGIN ?? new URL(c.req.url).origin }));
 
 app.get("/api/v1/navigation", requireScope("read"), getNavigationPreferences);
 app.put("/api/v1/navigation", requireScope("manage"), saveNavigationPreferences);
