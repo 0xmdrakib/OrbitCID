@@ -1,0 +1,16 @@
+ENVIRONMENT=staging
+APP_ORIGIN=https://ipfs.example.com
+ALLOWED_EMAIL=you@gmail.com
+ACCESS_TEAM_DOMAIN=your-team.cloudflareaccess.com
+ACCESS_AUD=replace-with-access-application-audience-tag
+ADMIN_PASSWORD_HASH=pbkdf2-sha256$310000$replace-salt$replace-hash
+SESSION_SECRET=replace-with-at-least-32-random-bytes
+PROJECT_KEY_PEPPER=replace-with-a-different-32-byte-secret
+REPLICATION_SIGNING_SECRET=replace-with-a-different-32-byte-secret
+KUBO_NODE_PRIMARY_URL=https://kubo-primary-bridge.example.com
+KUBO_NODE_PRIMARY_TOKEN=replace-with-primary-bridge-token
+# Optional secondary replica:
+# KUBO_NODE_SECONDARY_URL=https://kubo-secondary-bridge.example.com
+# KUBO_NODE_SECONDARY_TOKEN=replace-with-secondary-bridge-token
+RECOVERY_KEY=replace-with-base64url-encoded-32-byte-key
+IPNS_SIGNING_KEY=replace-with-base64url-encoded-32-byte-ed25519-seed

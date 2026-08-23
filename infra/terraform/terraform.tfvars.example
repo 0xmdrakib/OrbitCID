@@ -1,0 +1,15 @@
+account_id                  = "your-cloudflare-account-id"
+zone_id                     = "your-cloudflare-zone-id"
+domain                      = "example.com"
+resource_prefix             = "orbitcid"
+allowed_email               = "you@gmail.com"
+google_identity_provider_id = "cloudflare-google-login-method-id"
+cloudflare_api_token        = "use-TF_VAR_cloudflare_api_token-instead"
+google_project_id           = "billing-enabled-google-cloud-project"
+kubo_machine_type           = "e2-standard-2"
+kubo_disk_size_gb           = 100
+bridge_token_primary        = "generate-a-different-32-byte-token"
+primary_region              = "asia-south1"
+primary_zone                = "asia-south1-a"
+enable_secondary_node       = false
+# bridge_token_secondary    = "set-when-enable-secondary-node-is-true"

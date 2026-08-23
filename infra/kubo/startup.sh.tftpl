@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+DEVICE="/dev/disk/by-id/google-ipfs-data"
+MOUNT="/srv/ipfs"
+mkdir -p "$MOUNT"
+if ! blkid "$DEVICE" >/dev/null 2>&1; then mkfs.ext4 -F "$DEVICE"; fi
+grep -q "$DEVICE" /etc/fstab || echo "$DEVICE $MOUNT ext4 defaults,nofail,discard 0 2" >> /etc/fstab
+mountpoint -q "$MOUNT" || mount "$MOUNT"
+mkdir -p "$MOUNT/repo" /opt/orbitcid
+
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-compose-plugin
+systemctl enable --now docker
+
+echo '${bridge_source}' | base64 -d > /opt/orbitcid/bridge.mjs
+chmod 0600 /opt/orbitcid/bridge.mjs
+cat > /opt/orbitcid/.env <<'EOF'
+BRIDGE_TOKEN=${bridge_token}
+CLOUDFLARED_TOKEN=${cloudflared_token}
+ADMIN_ORIGIN=${admin_origin}
+EOF
+chmod 0600 /opt/orbitcid/.env
+
+cat > /opt/orbitcid/compose.yaml <<'EOF'
+services:
+  kubo:
+    image: ${kubo_image}
+    restart: unless-stopped
+    volumes:
+      - /srv/ipfs/repo:/data/ipfs
+    ports:
+      - "4001:4001/tcp"
+      - "4001:4001/udp"
+      - "127.0.0.1:5001:5001"
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD", "ipfs", "id"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+  bridge:
+    image: node:22-alpine
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      KUBO_API: http://kubo:5001
+      PORT: "8788"
+    volumes:
+      - /opt/orbitcid/bridge.mjs:/app/bridge.mjs:ro
+    command: ["node", "/app/bridge.mjs"]
+    depends_on:
+      kubo:
+        condition: service_healthy
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    env_file: .env
+    command: ["tunnel", "--no-autoupdate", "run", "--token", "$${CLOUDFLARED_TOKEN}"]
+    depends_on:
+      - bridge
+EOF
+
+cd /opt/orbitcid
+docker compose up -d
