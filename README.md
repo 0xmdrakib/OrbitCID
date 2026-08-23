@@ -179,6 +179,6 @@ Publishing to Kubo makes content available to the public IPFS network. OrbitCID 
 
 ## License
 
-OrbitCID is available under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](./LICENSE).
 
-© 2026 Md. Rakib — made with love and passion.
+© 2026 Md. Rakib • made with love and passion.
