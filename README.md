@@ -177,7 +177,3 @@ Contributions are welcome. Keep pull requests focused, run the verification comm
 ## License
 
 This project is licensed under the [MIT License](./LICENSE).
-
-<p align="center">
-  © 2026 <a href="https://github.com/0xmdrakib">Md. Rakib</a> • made with love and passion.
-</p>
