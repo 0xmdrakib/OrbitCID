@@ -9,48 +9,18 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "npm --workspace frontend run dev",
     "dev:frontend": "npm --workspace frontend run dev",
-    "dev:dashboard": "vite --host 0.0.0.0",
-    "build:dashboard": "vite build --configLoader native",
-    "build:worker": "wrangler deploy --dry-run --outdir dist",
-    "build:frontend": "npm --workspace frontend run build",
-    "build": "npm run build:frontend && npm run build:dashboard && npm run typecheck && npm run build:worker",
-    "deploy": "wrangler deploy",
+    "build": "npm --workspace frontend run build",
     "typecheck": "tsc --noEmit && npm --workspace frontend run typecheck",
     "test": "vitest run --configLoader native --pool=threads --maxWorkers=1",
     "test:watch": "vitest",
-    "db:migrate:local": "wrangler d1 migrations apply orbitcid_metadata --local",
-    "db:migrate:remote": "wrangler d1 migrations apply orbitcid_metadata --remote",
-    "admin:hash-password": "node scripts/hash-admin-password.mjs",
-    "secret:generate": "node scripts/generate-secret.mjs",
     "security:release": "node scripts/check-public-release.mjs",
-    "recovery:verify": "node scripts/verify-recovery.mjs",
     "lint": "npm run typecheck"
   },
-  "dependencies": {
-    "@ipld/car": "5.4.7",
-    "@ipld/dag-cbor": "10.0.2",
-    "@ipld/dag-pb": "4.1.7",
-    "hash-wasm": "4.12.0",
-    "hono": "4.13.0",
-    "ipfs-unixfs": "13.0.0",
-    "ipfs-unixfs-importer": "17.0.1",
-    "jose": "6.2.8",
-    "multiformats": "14.0.5",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "zod": "4.4.3"
-  },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260823.1",
     "@types/node": "26.1.2",
-    "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.4",
-    "@vitejs/plugin-react": "6.0.5",
     "typescript": "7.0.2",
-    "vite": "8.2.0",
-    "vitest": "4.1.10",
-    "wrangler": "^4.125.0"
+    "vitest": "4.1.10"
   }
 }

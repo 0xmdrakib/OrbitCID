@@ -1,71 +1,54 @@
 # Deployment guide
 
-This guide uses `example.com` and empty example environments. Replace them only in private provider settings. Never commit a database URL, OAuth secret, pairing file, `.env.local`, `.tfvars`, Terraform state, or generated key.
+OrbitCID uses one production architecture: Vercel for the frontend, Neon for tenant control state, and a persistent self-hosted Kubo backend. Cloudflare R2 is an optional per-backend encrypted backup destination, not the primary database or IPFS node.
 
-## 1. Decide which profile to deploy
+Examples use `example.com` and blank values. Never commit database URLs, OAuth secrets, pairing files, `.env.local`, R2 credentials, or generated keys.
 
-The profiles are independent:
+## 1. Neon database
 
-- **Vercel profile:** public Next.js UI, Google OAuth, Neon tenant state, and user-paired Kubo backends.
-- **Cloudflare provider profile:** owner-operated Worker/R2/D1 service with projects, provider APIs, gateway policies, and Kubo replication.
-
-The Vercel profile is the default for the shared frontend described below. Cloudflare remains optional; it is not required to run Kubo.
-
-## 2. Create the Neon control database
-
-Create separate Neon branches or projects for development, preview, and production. Use the pooled owner URL only for Better Auth, migrations, and the narrowly defined pairing claim transaction.
-
-Set `DATABASE_URL` in your private shell and apply the schema:
+Create separate Neon branches or projects for development, preview, and production. Use the pooled owner URL only for Better Auth, migrations, and the pairing-claim service transaction.
 
 ```bash
 npm --workspace frontend run db:migrate
 ```
 
-The migration creates:
+The migrations create Better Auth tables plus `user_profiles`, `backend_connections`, `pairing_claims`, `user_activity`, and `user_preferences`. Every application table has forced RLS.
 
-- Better Auth user, account, session, and verification tables
-- `user_profiles`
-- `backend_connections`
-- `pairing_claims`
-- `user_activity`
-- `user_preferences`
-- restricted `orbitcid_tenant` and internal `orbitcid_service` roles
-- forced RLS policies on every application table
+Generate a unique base64url tenant-role password and configure it without placing it in a SQL file:
 
-Generate a unique password, replace the placeholder in `frontend/migrations/0003_tenant_role_setup.example.sql`, and execute it once as the database owner. Build `TENANT_DATABASE_URL` from the same pooled host using the `orbitcid_tenant` role.
+```bash
+ORBITCID_TENANT_PASSWORD='generated-value' npm --workspace frontend run db:configure-tenant
+```
 
-Verify the boundary before deploying:
+Build the pooled restricted-role URL with that password and store it as `TENANT_DATABASE_URL`.
 
 ```bash
 npm --workspace frontend run db:verify-isolation
 ```
 
-The check proves that user A can see only A and that an A-context transaction cannot insert a B-owned row. The test rolls back its temporary data.
+The check proves that one tenant cannot read or insert another tenant's rows and rolls its temporary data back.
 
-## 3. Configure Google OAuth
+## 2. Google OAuth
 
 In Google Cloud Console:
 
-1. Open **APIs & Services → OAuth consent screen** and configure the application.
-2. Open **Credentials → Create credentials → OAuth client ID**.
-3. Choose **Web application**.
-4. Add the exact frontend origins. Do not add wildcards.
-5. Add the exact callback paths:
+1. Configure **APIs & Services → OAuth consent screen**.
+2. Create an OAuth client of type **Web application**.
+3. Add exact origins without wildcards.
+4. Add exact callbacks:
 
 ```text
 http://localhost:3000/api/auth/callback/google
 https://app.example.com/api/auth/callback/google
 ```
 
-Use a different OAuth client for production if previews are available to other people. Enable MFA or passkeys on accounts allowed to administer the deployment.
+OrbitCID requests only normal Google identity profile data. It does not require Gmail, Drive, or another Google API scope.
 
-OrbitCID requests the normal Google identity profile. It does not need Drive, Gmail, or other Google API scopes.
+## 3. Vercel
 
-## 4. Configure Vercel secrets
+Import the repository and keep the repository root as the Vercel project root. `vercel.json` builds the `frontend` workspace.
 
-Import the repository into Vercel. Keep the repository root as the project root; `vercel.json` selects the `frontend` workspace.
-
-Add every variable from `frontend/.env.example` in **Project Settings → Environment Variables**:
+Add every variable from `frontend/.env.example`:
 
 - `BETTER_AUTH_URL`
 - `BETTER_AUTH_SECRET`
@@ -78,118 +61,80 @@ Add every variable from `frontend/.env.example` in **Project Settings → Enviro
 - `ORBITCID_GRANT_KEY_ID`
 - `TRUSTED_ORIGINS`
 
-Generate the asymmetric grant key:
+Generate the asymmetric grant key locally:
 
 ```bash
 npm --workspace frontend run key:generate
 ```
 
-The command prints values; it does not write an environment file. Transfer them directly into Vercel secrets. The private key must never be a `NEXT_PUBLIC_` variable.
+Transfer its output directly into Vercel secrets. Never expose a database URL, OAuth secret, or signing key through a `NEXT_PUBLIC_` variable. Use separate credentials for preview and production.
 
-Set `BETTER_AUTH_URL` to the canonical production origin. `TRUSTED_ORIGINS` is a comma-separated allowlist for deliberate preview/custom origins; leave it empty when there are none. Redeploy after changing environment variables.
+## 4. Kubo backend
 
-Recommended Vercel settings:
-
-- production-only access for production database and OAuth credentials
-- separate preview credentials and Neon branch when previews need authentication
-- Git deployments only from reviewed branches
-- deployment logs with short retention and no request-body logging
-
-## 5. Deploy the portable Kubo backend
-
-Use persistent SSD storage and a supported Docker host:
+Use persistent SSD storage on a supported Docker host:
 
 ```bash
 cd infra/node
-cp .env.example .env
+cp ../../backend/.env.example ../../backend/.env
+docker compose --env-file ../../backend/.env up -d --build kubo agent
 ```
 
-Provide private values for:
-
-- `BRIDGE_TOKEN` — emergency/control-plane credential, at least 32 random bytes
-- `ORBITCID_FRONTEND_ORIGIN` — exact canonical Vercel/custom origin
-- `ORBITCID_BACKEND_PUBLIC_URL` — exact public HTTPS agent origin
-- `TUNNEL_TOKEN` — only when using the Tunnel profile
-- backup variables — only when enabling backups
-
-Start the persistent node:
-
-```bash
-docker compose up -d kubo agent
-docker compose --profile tunnel up -d
-```
+Set `ORBITCID_FRONTEND_ORIGIN` and `ORBITCID_BACKEND_PUBLIC_URL` to exact HTTPS origins. Use Caddy, nginx, or provider ingress to terminate HTTPS and forward only the backend hostname to `127.0.0.1:8788`.
 
 Network policy:
 
-- allow `4001/TCP` and `4001/UDP` from the internet for libp2p
-- keep `5001` Kubo RPC on loopback/container networking
-- keep `8080` Kubo gateway on loopback/container networking
-- keep `8788` agent on loopback and publish it only through an HTTPS reverse proxy/Tunnel
-- route the backend hostname to `http://agent:8788`, never `http://kubo:5001`
+- allow `4001/TCP` and `4001/UDP` for libp2p
+- keep Kubo RPC `5001` private
+- keep the Kubo gateway `8080` private
+- keep the agent `8788` on loopback behind HTTPS
+- do not share frontend cookies with the backend hostname
 
-The backend endpoint must not share cookies with the frontend and must not host arbitrary public HTML on the frontend origin.
+## 5. Pairing
 
-## 6. Pair a Google user to the backend
-
-In the deployed frontend:
-
-1. Sign in with Google.
-2. Create a named pairing claim.
-3. Copy the one-time code.
-
-On the backend:
+Create a one-time claim in the signed-in frontend, then run:
 
 ```bash
-docker compose --profile pair run --rm pair
-docker compose up -d agent
+docker compose --env-file ../../backend/.env --profile pair run --rm pair
+docker compose --env-file ../../backend/.env up -d agent
 ```
 
-Paste the code only at the terminal prompt. The pairing client:
+The client generates an Ed25519 key pair, proves possession, consumes the ten-minute claim atomically, downloads the frontend signing keys, and writes `pairing.json` with mode `0600` into the private agent volume.
 
-1. Generates a backend Ed25519 key pair.
-2. Signs the code, backend origin, nonce, and timestamp.
-3. Redeems the claim over HTTPS.
-4. Downloads the frontend public signing keys.
-5. Writes `pairing.json` with mode `0600` into the private agent volume.
+The backend pins the grant-signing public key at pairing time. During planned signing-key rotation, retain the previous public key until its five-minute grants expire and re-pair each backend before removing it. For suspected compromise, revoke connections immediately and re-pair with a fresh key.
 
-The browser never receives `BRIDGE_TOKEN`, the backend private key, or a permanent project key. For each operation, Vercel issues a five-minute grant containing the verified user, backend audience, scopes, expiry, and unique ID.
+## 6. Optional R2 backup
 
-The backend pins the frontend grant-signing public key at pairing time. During a signing-key rotation, keep the previous public key in `ORBITCID_GRANT_PUBLIC_JWKS` until its five-minute grants have expired, then re-pair each backend before removing that key. If a signing key may be compromised, revoke every affected connection first and re-pair with a fresh key pair.
+Create a private R2 bucket and an S3-compatible API token limited to Object Read & Write on that bucket. Do not use the Global API Key and do not make the bucket public.
 
-## 7. Configure encrypted backup
+In the frontend console:
 
-Create an rclone remote on R2, S3, GCS, another compatible provider, or a second server. Wrap it with rclone `crypt`, encrypt `rclone.conf`, and keep its password in a separate secret manager.
+1. Select the paired backend.
+2. Open **Optional offsite backup**.
+3. Enter the account ID, bucket, restricted access key, prefix, and retention period.
+4. Save the encrypted configuration.
+5. Run a backup and monitor its status.
 
-```bash
-docker compose --profile backup run --rm backup
-docker compose --profile backup run --rm --entrypoint /usr/local/bin/restore.sh backup
-```
+The credential request goes directly from the browser to the selected backend with a one-use, five-minute `backup` grant. Neon stores only a non-secret activity event. The backend stores an AES-256-GCM envelope; backup content and names are encrypted through rclone crypt before upload.
 
-The backup exports recursive pins to CAR, writes checksums and a manifest, then transfers ciphertext. Install the supplied systemd timer for scheduled runs and alert on missed backups. A production launch requires a clean-volume restore test.
+The pairing identity protects the configuration and supplies backup encryption material. Preserve an offline recovery copy of the private pairing volume. Losing it means losing access to the encrypted backup configuration and snapshots.
 
-## 8. Optional Cloudflare provider profile
+Restore the latest snapshot into a clean node with `docker compose exec agent node /app/backend/r2-restore.mjs`. Pass a `YYYYMMDDTHHMMSSZ` timestamp as the final argument to restore a specific snapshot.
 
-Operators who need the existing project/R2 provider features can deploy `infra/terraform` and the root Worker separately. Use a narrowly scoped Cloudflare API token. Review every Terraform plan and preserve unrelated DNS records.
+R2 is optional. Leaving it unconfigured does not affect uploads, pins, retrieval, or public IPFS participation.
 
-The Cloudflare profile provisions its own Worker, D1, R2, KV, queues, workflows, Access policies, and gateway boundaries. Follow the values in the root `.dev.vars.example`, `wrangler.jsonc`, and `infra/terraform/terraform.tfvars.example`. Do not expose an R2 bucket through `r2.dev`.
+## 7. Production acceptance
 
-The optional `infra/terraform-google` root creates one Kubo node by default. It is separate so users of another VPS do not need Google Cloud credentials. A second node remains optional.
-
-## 9. Production acceptance
-
-Before real content:
-
-- Verify Google login, logout, session revocation, and avatar rendering.
+- Verify Google login/logout, session revocation, and avatar rendering.
 - Confirm anonymous mutation APIs return `401`.
 - Run the Neon RLS isolation check.
-- Pair a backend and verify a wrong user/audience/scope grant is rejected.
-- Confirm replaying one mutation grant returns `401`.
-- Upload at the 1 MiB boundary and a multi-chunk file.
-- Retrieve the CID through the authenticated backend route.
-- Confirm Kubo has public peers and retrieve a deliberately public test CID from an independent IPFS peer.
-- Verify that `5001` and `8080` are not internet-reachable.
-- Run a large interrupted upload test appropriate to the server and reverse proxy limits.
-- Restore the latest encrypted CAR snapshot into a clean Kubo volume.
-- Configure disk, memory, certificate, backup, and billing alerts.
+- Prove wrong-user, wrong-audience, wrong-scope, expired, and replayed grants fail.
+- Confirm R2 credentials do not appear in Neon rows, frontend storage, logs, or status responses.
+- Verify the encrypted local R2 envelope contains no plaintext access key.
+- Upload 1 MiB-boundary and multi-chunk files.
+- Retrieve a test CID through the authenticated backend route.
+- Confirm Kubo has public peers and an independent peer can retrieve deliberately public content.
+- Confirm ports `5001` and `8080` are not internet-reachable.
+- Run an R2 backup and restore it into a clean Kubo volume.
+- Configure disk, certificate, memory, backup-age, and billing alerts.
 
-One node is not high availability. It is a valid professional starting profile when monitored and recoverable; add an independent replica later without changing the frontend identity or connection model.
+One node is a professional recoverable starting point, not high availability. Add a second independent replica later without changing frontend identities or existing backend connections.

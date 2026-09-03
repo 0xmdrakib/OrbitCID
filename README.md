@@ -2,73 +2,56 @@
 
 OrbitCID is an open-source control surface for IPFS infrastructure you own. It combines a public Vercel frontend, Google sign-in, tenant-isolated Neon state, and a persistent Kubo backend that can run on a PC, VPS, NAS, or cloud VM.
 
-The repository does not publish a shared gateway, hosted IPFS service, or operator credentials. Each deployment supplies its own domains, OAuth application, database, node, storage, and secrets.
+Each deployment supplies its own OAuth application, Neon database, domain, Kubo node, and secrets. This repository contains no hosted operator URL or real environment value.
 
-**Project status:** pre-1.0. Use private content first and complete the staging, backup, restore, and independent-peer checks before publishing important data.
+> **Project status:** pre-1.0. Complete the security, backup, restore, and independent-peer acceptance checks before relying on OrbitCID for important production data.
 
 ---
 
-## Overview
+## Architecture
 
-OrbitCID separates identity, control state, and file storage:
+1. **Vercel frontend** — anyone can inspect the public interface. Google sign-in is required before connecting a backend or performing a private action.
+2. **Neon control state** — Better Auth sessions, backend connections, preferences, and activity records. Forced PostgreSQL Row-Level Security isolates every user.
+3. **Self-hosted backend** — Kubo plus the narrow OrbitCID agent. File bytes stream directly between the browser and the user's node; they do not pass through Vercel or Neon.
+4. **Optional R2 backup** — a signed-in user may add a least-privilege Cloudflare R2 bucket from the console. This is optional and is not part of the primary IPFS data path.
 
-1. **Frontend — Vercel:** A Next.js application anyone may inspect. Google sign-in is required before a user can connect a backend, upload, pin, or read private activity.
-2. **Control state — Neon:** Better Auth sessions, backend connections, preferences, and activity rows. Every application table has `user_id`; a restricted database role and forced Postgres Row-Level Security isolate tenants.
-3. **IPFS backend — your server:** A persistent Kubo node plus the OrbitCID agent. File bytes stream directly between the browser and this backend; they do not pass through Vercel or Neon.
+Kubo is the true IPFS data plane. It participates in libp2p, DHT, Bitswap, and the public IPFS network when its swarm port is reachable. Kubo RPC and its local gateway stay private.
 
-The portable data plane is true IPFS. Kubo participates in libp2p, DHT, Bitswap, and the public IPFS network when its swarm port is reachable. Kubo RPC and its local HTTP gateway remain private.
+## Security properties
 
-## Features
-
-- Public, responsive frontend with Google login/logout and the signed-in account avatar
-- Database-backed, revocable Better Auth sessions with secure cookies, OAuth state, and PKCE
-- Neon tenant records protected by application authorization and forced Postgres RLS
-- One-time, 256-bit, ten-minute backend pairing claims stored only as SHA-256 hashes
+- Google OAuth through Better Auth with state, PKCE, secure cookies, and revocable database sessions
+- Server-derived tenant identity plus a restricted Neon role and forced RLS
+- 256-bit, single-use, ten-minute backend pairing claims stored only as SHA-256 hashes
 - Ed25519 proof of backend-key possession during pairing
-- Five-minute grants bound to one Google user, one backend audience, and explicit scopes
-- One-time mutation grant IDs to reduce replay risk
-- Direct browser-to-Kubo streaming uploads with CIDv1, SHA-256, 1 MiB chunks, and raw leaves
-- Recursive pin listing, add, and removal without exposing Kubo RPC
-- Persistent Kubo storage, public swarm connectivity, and encrypted off-server CAR backups
-- Optional Cloudflare provider profile with R2/D1, projects, resumable uploads, sealed content, gateway policies, and recovery workflows
-- No local authentication bypass, real environment file, private key, or hosted operator URL in the repository
+- Five-minute grants bound to one user, backend audience, and explicit scope
+- One-use mutation grant IDs to reduce replay
+- Exact-origin CORS and no permanent backend token in JavaScript or browser storage
+- Direct browser-to-Kubo streaming with CIDv1, SHA-256, 1 MiB chunks, and raw leaves
+- Kubo RPC and gateway restricted to loopback/container networking
+- R2 credentials sent directly to the paired backend, AES-256-GCM encrypted at rest, and never stored in Neon
+- R2 CAR snapshots encrypted with rclone crypt before upload
+- No authentication bypass or real secret in the public repository
 
 ## Repository layout
 
 | Path | Purpose |
 | --- | --- |
-| [`frontend`](frontend) | Next.js Vercel application, Google OAuth, Neon schema, RLS, pairing and grant APIs |
-| [`backend`](backend) | Portable pairing client and backend grant verifier |
-| [`infra/node`](infra/node) | Docker Compose Kubo node, OrbitCID agent, Tunnel and encrypted backup jobs |
-| [`src`](src) | Optional Cloudflare Worker provider control plane |
-| [`dashboard`](dashboard) | Optional provider-oriented Vite dashboard |
-| [`migrations`](migrations) | Cloudflare D1 provider migrations |
-| [`infra/terraform`](infra/terraform) | Optional Cloudflare infrastructure |
-| [`infra/terraform-google`](infra/terraform-google) | Optional single-node Google Cloud deployment |
+| [`frontend`](frontend) | Next.js application, Google OAuth, Neon schema/RLS, pairing and grants |
+| [`backend`](backend) | Portable pairing, grant verification, and encrypted R2 backup state |
+| [`infra/node`](infra/node) | Docker Compose Kubo node, OrbitCID agent, backup and recovery tooling |
+| [`docs`](docs) | Deployment and threat-model documentation |
+| [`test`](test) | Pairing, grant, replay, tenant-isolation, and backup-security tests |
 
-## Deployment profiles
+Frontend and backend configuration are intentionally separate:
 
-### Portable Vercel profile
+- [`frontend/.env.example`](frontend/.env.example)
+- [`backend/.env.example`](backend/.env.example)
 
-Use this profile when multiple Google users should be able to sign in and pair infrastructure they own.
-
-| Layer | Recommended deployment |
-| --- | --- |
-| Frontend and authenticated API | Vercel |
-| User/session/control state | Neon Postgres |
-| IPFS storage and network | Persistent Kubo on any suitable server |
-| Backend HTTPS | Cloudflare Tunnel, Caddy, nginx, or another trusted reverse proxy |
-| Offsite backup | Encrypted rclone remote on R2, S3, GCS, or a second server |
-
-Neon does not create a physical database or “bucket” per login. OrbitCID uses logical tenant rows, a server-derived user identity, a restricted database role, and RLS. Browser input never chooses the effective `user_id`.
-
-### Cloudflare provider profile
-
-The existing Worker profile remains available for an owner-operated IPFS provider. It includes project-scoped files, pins, API keys, quotas, visibility, R2 block storage, D1 metadata, queues, recovery exports, and optional Kubo replication. It can be deployed independently of the Vercel profile.
+Copy them only to ignored private environment files. Never fill an example file with real values.
 
 ## Local verification
 
-Use Node.js 22 or newer. Docker is required only for live Kubo and backup tests.
+Node.js 22 or newer is required. Docker is needed only for live Kubo testing.
 
 ```bash
 git clone https://github.com/0xmdrakib/OrbitCID.git
@@ -81,81 +64,64 @@ npm run build
 npm audit --omit=dev
 ```
 
-Real authentication bypasses are intentionally unavailable. For authenticated local development, use a real Google OAuth development client and a disposable local Postgres database, or deploy a protected preview with separate credentials.
+There is no mock or local authentication bypass. Use a real Google development OAuth client and a disposable Postgres database for authenticated local development.
 
-## Deploy the Vercel frontend
+## Deploy the frontend
 
-1. Create a Neon project and use its pooled owner connection as `DATABASE_URL`.
-2. Run `npm --workspace frontend run db:migrate`.
-3. Generate a unique password, execute [`frontend/migrations/0003_tenant_role_setup.example.sql`](frontend/migrations/0003_tenant_role_setup.example.sql) after replacing its placeholder, and store the pooled restricted-role URL as `TENANT_DATABASE_URL`.
-4. Run `npm --workspace frontend run db:verify-isolation` using the owner URL.
-5. Create a Google OAuth **Web application**. Add these exact redirect URIs:
-   - `http://localhost:3000/api/auth/callback/google` for local development
-   - `https://your-frontend.example.com/api/auth/callback/google` for production
-6. Copy [`frontend/.env.example`](frontend/.env.example) only as a private local `.env.local`, then provide every production value through Vercel Environment Variables.
-7. Generate the backend-grant key pair with `npm --workspace frontend run key:generate`. Store its output only in Vercel secrets.
-8. Import the repository into Vercel. The root [`vercel.json`](vercel.json) builds the `frontend` workspace.
+1. Create separate Neon development and production databases or branches.
+2. Set the pooled owner URL as `DATABASE_URL` and run `npm --workspace frontend run db:migrate`.
+3. Generate a base64url tenant password, set it temporarily as `ORBITCID_TENANT_PASSWORD`, and run `npm --workspace frontend run db:configure-tenant`. Build `TENANT_DATABASE_URL` with that restricted login.
+4. Run `npm --workspace frontend run db:verify-isolation`.
+5. Create a Google OAuth Web application with `/api/auth/callback/google` as the exact callback path.
+6. Generate the grant-signing key with `npm --workspace frontend run key:generate`.
+7. Import this repository into Vercel and add every value from [`frontend/.env.example`](frontend/.env.example) as private Environment Variables.
 
-Required frontend variables are documented without values in [`frontend/.env.example`](frontend/.env.example). Never prefix database URLs, Google secrets, auth secrets, or grant keys with `NEXT_PUBLIC_`.
+The root [`vercel.json`](vercel.json) builds only the `frontend` workspace.
 
 ## Deploy and pair a backend
 
-On a persistent Linux server with Docker:
+On a persistent Linux host with Docker:
 
 ```bash
 cd infra/node
-cp .env.example .env
-# Fill the private values and exact HTTPS origins.
-docker compose up -d kubo agent
-docker compose --profile tunnel up -d
+cp ../../backend/.env.example ../../backend/.env
+# Fill only the exact frontend and backend origins plus operational limits.
+docker compose --env-file ../../backend/.env up -d --build kubo agent
 ```
 
-Expose only `4001/TCP` and `4001/UDP` for the IPFS swarm. Host ports `5001`, `8080`, and `8788` bind to loopback by default. Route backend HTTPS traffic to the agent, never directly to Kubo RPC.
+Expose `4001/TCP` and `4001/UDP` for the IPFS swarm. Keep `5001`, `8080`, and `8788` on loopback. Publish port `8788` through an HTTPS reverse proxy such as Caddy, nginx, or your hosting provider's private ingress; never expose Kubo RPC.
 
-To pair:
+To pair the node:
 
-1. Sign in to the deployed frontend with Google.
+1. Sign in to the Vercel frontend.
 2. Create a named one-time pairing code.
-3. On the backend, run:
+3. Run `docker compose --env-file ../../backend/.env --profile pair run --rm pair` on the backend.
+4. Paste the code at the terminal prompt and restart the agent.
 
-```bash
-docker compose --profile pair run --rm pair
-```
+The generated `pairing.json` stays in a private Docker volume. Revoking the connection prevents new grants; existing grants expire within five minutes.
 
-4. Paste the code at the terminal prompt, restart the agent, and use **Test** in the frontend console.
+## Optional Cloudflare R2 backup
 
-The generated `pairing.json` stays in a private Docker volume with the backend private key and connection binding. Revoking a connection immediately prevents new grants; already issued grants expire within five minutes.
+R2 backup is opt-in per backend. In the signed-in console, select a paired backend and provide:
 
-## Content behavior
+- Cloudflare account ID
+- one existing private R2 bucket
+- an R2 S3 access key restricted to Object Read & Write for that bucket
+- backup prefix and retention period
 
-- A signed-in user can upload directly to their selected backend and inspect its recursive pinset.
-- Kubo returns the content CID. Use `ipfs://{cid}` for blockchain and NFT references.
-- Content is public on IPFS only when it is announced or retrievable through peers; encryption is required for confidential payloads.
-- Removing your pin does not recall copies already retained by other IPFS peers.
-- One Kubo node is recoverable but not highly available. Add another independent replica when uptime justifies the cost.
+The browser sends these values directly to the paired backend using a one-use `backup` grant. Vercel and Neon receive no R2 credential. The backend encrypts its local configuration with AES-256-GCM using key material derived from its pairing identity. During backup, rclone crypt encrypts CAR contents and names before they reach R2.
 
-## Backup and recovery
+Users who do not want R2 simply leave the feature unconfigured. Removing the configuration does not delete existing snapshots.
 
-The portable backup job exports recursive pins as CAR files, records SHA-256 checksums, and sends encrypted snapshots to a provider-neutral rclone target. It never copies a live datastore database.
+## Recovery and limitations
 
-```bash
-docker compose --profile backup run --rm backup
-docker compose --profile backup run --rm --entrypoint /usr/local/bin/restore.sh backup
-```
+- Keep the backend pairing volume and an offline recovery copy secure; it is required to decrypt the saved R2 configuration and encrypted snapshots.
+- Test a restore on a clean Kubo volume before relying on a backup.
+- One Kubo node is recoverable but not highly available. Add an independent replica when uptime requirements justify it.
+- Content published to public IPFS cannot be recalled from peers that copied it.
 
-Keep the VPS account, backup account, encryption password, Google OAuth secret, Neon credentials, and grant-signing key as separate recovery factors. Test a clean restore before depending on a backup.
-
-## Security
-
-- Keep `.env`, `.env.local`, `.dev.vars`, deploy-time `.tfvars`, Terraform state, pairing files, and generated secrets outside Git.
-- Use exact HTTPS origins and no wildcard CORS for authenticated backend calls.
-- Do not expose Kubo RPC, the local Kubo gateway, or the emergency bridge token.
-- Use different databases and OAuth clients for preview and production.
-- Restrict Vercel production secrets to the production environment when possible.
-- Review the [threat model](docs/THREAT_MODEL.md) and [deployment guide](docs/DEPLOYMENT.md) before launch.
-
-Report suspected vulnerabilities through [GitHub private vulnerability reporting](https://github.com/0xmdrakib/OrbitCID/security/advisories/new), not a public issue.
+Read the full [deployment guide](docs/DEPLOYMENT.md) and [threat model](docs/THREAT_MODEL.md) before launch. Report vulnerabilities through [GitHub private vulnerability reporting](https://github.com/0xmdrakib/OrbitCID/security/advisories/new).
 
 ## License
 
-This project is licensed under the [MIT License](./LICENSE).
+OrbitCID is available under the [MIT License](LICENSE).

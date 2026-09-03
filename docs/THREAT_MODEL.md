@@ -2,62 +2,51 @@
 
 ## Protected assets
 
-- Google-linked account identity and revocable sessions
-- Per-user backend connection state, preferences, and activity rows in Neon
+- Google-linked identities and revocable sessions
+- Per-user connection, preference, and activity rows in Neon
 - Frontend grant-signing private key
-- Backend pairing private key and emergency bridge credential
-- Private IPFS content and Kubo pin state
-- Encrypted CAR backups and their independent recovery keys
-- Optional Cloudflare provider content, project ownership, and publication decisions
+- Backend pairing private key and Kubo pin state
+- Optional R2 credentials and encrypted CAR snapshots
 
 ## Trust boundaries
 
 - Browser to Vercel and Better Auth
 - Vercel functions to Neon owner and restricted tenant roles
-- Browser to the user-selected HTTPS backend
+- Browser to the selected HTTPS backend
 - Pairing client to the one-time Vercel claim endpoint
-- OrbitCID agent to loopback/container-only Kubo RPC
-- Kubo to libp2p, DHT, Bitswap, and the public IPFS network
-- Backup job to a separately credentialed storage provider
+- OrbitCID agent to private Kubo RPC
+- Kubo to libp2p, DHT, Bitswap, and public peers
+- OrbitCID agent to an optional private R2 bucket
 
-## Primary threats and controls
+## Threats and controls
 
 | Threat | Control |
 | --- | --- |
-| Anonymous private action | Server-validated Better Auth session is required; the public page remains read-only |
-| OAuth login CSRF or code injection | Better Auth state, PKCE, exact callbacks, trusted origins, HttpOnly/Secure/SameSite cookies |
-| User A reads or changes user B | Server-derived user ID on every route, parameterized queries, restricted DB role, forced Postgres RLS |
-| Browser steals permanent backend credentials | No permanent backend credential is placed in JavaScript or localStorage; five-minute scoped grants are used |
-| Backend is paired by an attacker | 256-bit single-use claim, ten-minute expiry, Ed25519 proof of possession, atomic claim consumption |
-| Grant used against another backend | JWT `aud` is the immutable backend connection ID and is checked by the agent |
-| Grant used as another user | JWT `sub` must match the owner bound in local pairing configuration |
-| Grant scope escalation | Agent checks the required scope for every route; Kubo RPC itself remains private |
-| Mutation replay | Unique JWT ID is consumed once for upload/pin mutations and expires with the grant |
-| Cross-origin browser request | Exact paired frontend origin in CORS; no wildcard with credentials; Vercel mutations verify same origin |
-| Kubo API exposure | RPC and local gateway bind to loopback/container networking; only the agent and Kubo swarm are reachable |
-| Oversized upload/CAR | Declared and streamed byte limits, bounded request JSON, Kubo-side chunking, timeouts |
-| Path traversal or CID confusion | Strict CID/path parsing, rejected dot/backslash/NUL segments, no arbitrary filesystem path input |
-| Pairing SSRF | Backend claims outbound to Vercel; Vercel does not fetch the user-supplied backend URL during pairing |
-| Database credential disclosure | Separate owner/tenant URLs, production-only Vercel secrets, no client exposure, provider rotation procedure |
-| VPS disk loss | Persistent volumes plus checksummed CAR export to encrypted off-provider storage |
-| Backup provider disclosure | rclone crypt encrypts names and content before transfer; credentials and encryption password are separate |
-| Public-content deletion expectation | Documentation warns that third-party IPFS peers can retain already published bytes |
-| Accidental secret publication | Ignore rules, blank examples, release scanner, CI, CodeQL, and no tracked runtime pairing file |
+| Anonymous private action | Verified Better Auth session required; public UI is read-only |
+| OAuth CSRF/code injection | State, PKCE, exact callbacks, trusted origins, secure HttpOnly cookies |
+| Cross-tenant database access | Server-derived user ID, parameterized queries, restricted role, forced RLS |
+| Permanent credential theft from browser | Only five-minute scoped grants enter JavaScript; no backend or R2 secret is persisted by the frontend |
+| Backend hijacking during pairing | 256-bit one-use claim, ten-minute expiry, Ed25519 proof, atomic consumption |
+| Grant used for another user/node | Agent validates `sub`, `aud`, issuer, signature, expiry, and scope |
+| Mutation replay | Agent consumes the grant's unique ID once within its lifetime |
+| Cross-origin backend call | Exact paired origin in CORS; no credentialed wildcard |
+| Kubo RPC exposure | RPC and local gateway stay on loopback/container networking |
+| Oversized input | Declared and streamed upload limits, bounded JSON, timeouts |
+| Path traversal/CID confusion | Strict CID/path parsing and rejection of dot, backslash, and NUL segments |
+| R2 secret disclosure | Direct browser-to-backend delivery, one-use backup grant, AES-256-GCM local envelope, no secret in Neon/activity/status |
+| R2 account overreach | Documentation and UI require bucket-scoped Object Read & Write credentials, never a global key |
+| R2 object disclosure | Private bucket plus rclone crypt content and filename encryption |
+| Backend disk loss | Persistent storage plus encrypted offsite CAR snapshots and restore testing |
+| Accidental publication | Blank examples, ignore rules, release scanner, CI, CodeQL |
 
-## Important residual risks
+## Residual risks
 
-- A compromised authorized browser session can perform actions available to that user until revoked.
-- A compromised Vercel grant-signing key can mint grants; rotate the key, revoke connections, and re-pair backends.
-- A compromised backend can read content stored on that backend and use its local Kubo identity.
-- RLS protects application access through the restricted role; the Neon database owner remains a privileged recovery role.
-- A single Kubo node cannot provide high availability during host, disk, or network failure.
-- Content published to public IPFS cannot be recalled from independent peers.
+- A compromised authorized browser session can use that user's granted actions until revoked.
+- A compromised Vercel signing key can mint grants; revoke connections, rotate the key, and re-pair.
+- Root compromise of the backend can access Kubo data and pairing-derived backup material.
+- Losing the backend pairing identity can make encrypted R2 snapshots unrecoverable.
+- Neon database owners bypass the restricted application role and remain privileged recovery operators.
+- One Kubo node cannot provide availability during host, disk, or network failure.
+- Public IPFS content cannot be recalled from independent peers.
 
-## Out of scope
-
-- Protecting plaintext after an authorized user downloads or decrypts it
-- Deleting data already copied by third-party IPFS peers
-- Compromise of the operator's Google, Vercel, Neon, cloud-provider, or GitHub account
-- Availability guarantees from a single-node deployment
-
-Security-sensitive changes must add a regression test and update this document when a boundary changes.
+Security-boundary changes require a regression test and an update to this document.

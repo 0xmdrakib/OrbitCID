@@ -6,8 +6,8 @@ import { withTenant } from "@/lib/database";
 import { assertSameOrigin, requireSession, unauthorized } from "@/lib/session";
 
 export const runtime = "nodejs";
-const scope = z.enum(["read", "write", "pin", "publish", "export"]);
-const inputSchema = z.object({ connectionId: z.string().uuid(), scopes: z.array(scope).min(1).max(5) }).strict();
+const scope = z.enum(["read", "write", "pin", "publish", "export", "backup"]);
+const inputSchema = z.object({ connectionId: z.string().uuid(), scopes: z.array(scope).min(1).max(6) }).strict();
 
 export async function POST(request: Request) {
   try { assertSameOrigin(request); } catch { return NextResponse.json({ error: { code: "ORIGIN_MISMATCH", message: "Request origin is not allowed" } }, { status: 403 }); }

@@ -9,6 +9,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "db:migrate": "node scripts/migrate.mjs",
+    "db:configure-tenant": "node scripts/configure-tenant-role.mjs",
     "db:verify-isolation": "node scripts/verify-tenant-isolation.mjs",
     "key:generate": "node scripts/generate-grant-key.mjs"
   },

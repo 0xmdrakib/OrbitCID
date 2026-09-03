@@ -1,8 +1,0 @@
-account_id                  = "your-cloudflare-account-id"
-zone_id                     = "your-cloudflare-zone-id"
-domain                      = "example.com"
-resource_prefix             = "orbitcid"
-allowed_email               = "you@gmail.com"
-# dashboard_domain          = "dashboard.example.com"
-google_identity_provider_id = "cloudflare-google-login-method-id"
-cloudflare_api_token        = "use-TF_VAR_cloudflare_api_token-instead"

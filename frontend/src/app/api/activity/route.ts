@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 }
 
 const activityInput = z.object({
-  action: z.enum(["file.uploaded", "pin.created", "pin.removed", "backend.checked", "file.downloaded"]),
+  action: z.enum(["file.uploaded", "pin.created", "pin.removed", "backend.checked", "file.downloaded", "backup.configured", "backup.removed", "backup.started"]),
   subject: z.string().max(300).nullable().optional(),
   connectionId: z.string().uuid(),
   metadata: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])).optional()

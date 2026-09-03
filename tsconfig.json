@@ -6,12 +6,12 @@
     "strict": true,
     "noEmit": true,
     "lib": ["ES2022", "DOM"],
-    "types": ["@cloudflare/workers-types", "node"],
+    "types": ["node"],
     "skipLibCheck": true,
     "allowJs": false,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+  "include": ["test/**/*.ts", "vitest.config.ts"]
 }

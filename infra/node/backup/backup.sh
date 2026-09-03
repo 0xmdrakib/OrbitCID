@@ -4,7 +4,8 @@ set -euo pipefail
 KUBO_API="${KUBO_API:-http://kubo:5001}"
 REMOTE="${RCLONE_REMOTE:?RCLONE_REMOTE is required}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
-WORK="/backups/snapshot-$STAMP"
+WORK_ROOT="${BACKUP_WORK_ROOT:-/backups}"
+WORK="$WORK_ROOT/snapshot-$STAMP"
 mkdir -p "$WORK/cars"
 
 curl --fail --silent --show-error --request POST "$KUBO_API/api/v0/id" | jq -r '.ID' > "$WORK/peer-id.txt"

@@ -3,13 +3,14 @@ set -euo pipefail
 
 KUBO_API="${KUBO_API:-http://kubo:5001}"
 REMOTE="${RCLONE_REMOTE:?RCLONE_REMOTE is required}"
+WORK_ROOT="${BACKUP_WORK_ROOT:-/backups}"
 SNAPSHOT="${1:-}"
 if [[ -z "$SNAPSHOT" ]]; then
   SNAPSHOT="$(rclone lsf "$REMOTE/snapshots" --dirs-only | sed 's:/$::' | LC_ALL=C sort | tail -n 1)"
 fi
 [[ "$SNAPSHOT" =~ ^[0-9]{8}T[0-9]{6}Z$ ]] || { echo "A valid snapshot timestamp is required" >&2; exit 1; }
 
-WORK="/backups/restore-$SNAPSHOT"
+WORK="$WORK_ROOT/restore-$SNAPSHOT"
 rm -rf "$WORK"
 mkdir -p "$WORK"
 rclone copy "$REMOTE/snapshots/$SNAPSHOT" "$WORK" --checksum
