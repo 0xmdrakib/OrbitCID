@@ -156,7 +156,7 @@ export function ConsoleApp() {
   }
 
   return <main className="console-main">
-    <section className="console-hero"><div><p className="eyebrow">YOUR CONTROL SPACE</p><h1>Good to see you,<br/><em>{session.user.name?.split(" ")[0] || "operator"}.</em></h1><p>Your account data is isolated. Your content remains on the IPFS backend you own.</p></div><div className="identity-card">{session.user.image ? <img src={session.user.image} alt="" referrerPolicy="no-referrer"/> : <span>{session.user.name?.[0] || "U"}</span>}<div><small>VERIFIED GOOGLE IDENTITY</small><strong>{session.user.name}</strong><p>{session.user.email}</p></div><Icon name="check"/></div></section>
+    <section className="console-hero"><div><p className="eyebrow">YOUR CONTROL SPACE</p><h1>Good to see you,<br/><em>{session.user.name || "Operator"}</em></h1><p>Your account data is isolated. Your content remains on the IPFS backend you own.</p></div><div className="identity-card">{session.user.image ? <img src={session.user.image} alt="" referrerPolicy="no-referrer"/> : <span>{session.user.name?.[0] || "U"}</span>}<div><small>VERIFIED GOOGLE IDENTITY</small><strong>{session.user.name}</strong><p>{session.user.email}</p></div><Icon name="check"/></div></section>
     {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><Icon name="x" size={16}/></button></div>}
     <section className="console-grid">
       <div className="console-panel connections-panel"><div className="panel-head"><div><p className="eyebrow">BACKEND CONNECTIONS</p><h2>Your nodes</h2></div><span className="count">{connections.filter((item) => item.state === "active").length}</span></div>
