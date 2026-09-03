@@ -6,7 +6,7 @@ import "./responsive.css";
 
 export const metadata: Metadata = {
   title: { default: "OrbitCID | Self-hosted IPFS", template: "%s | OrbitCID" },
-  description: "A secure Vercel control surface for IPFS infrastructure you own.",
+  description: "A secure control surface for self-hosted IPFS infrastructure.",
   robots: { index: true, follow: true }
 };
 export const viewport: Viewport = { colorScheme: "light", themeColor: "#f3f0ee", width: "device-width", initialScale: 1 };
