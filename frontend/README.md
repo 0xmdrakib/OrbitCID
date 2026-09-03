@@ -13,17 +13,3 @@ The frontend is a Next.js application designed for Vercel. Its public page is in
 - optional R2 backup configuration sent directly to the selected backend
 
 It does not store IPFS file bytes, R2 credentials, or permanent backend credentials.
-
-## Setup
-
-```bash
-cp .env.example .env.local
-npm run key:generate
-npm run db:migrate
-npm run db:verify-isolation
-npm run dev
-```
-
-Fill the private environment locally and in Vercel. The Google callback is `/api/auth/callback/google`. Use exact origins; do not expose any secret through a `NEXT_PUBLIC_` variable.
-
-See the root [deployment guide](../docs/DEPLOYMENT.md) for Neon role setup, Google OAuth, Vercel, backend pairing, and production acceptance.
