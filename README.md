@@ -44,42 +44,6 @@ Kubo is the true IPFS data plane. It participates in libp2p, DHT, Bitswap, and t
 | [`docs`](docs) | Deployment and threat-model documentation |
 | [`test`](test) | Pairing, grant, replay, tenant-isolation, and backup-security tests |
 
-Frontend and backend configuration are intentionally separate:
-
-- [`frontend/.env.example`](frontend/.env.example)
-- [`backend/.env.example`](backend/.env.example)
-
-Copy them only to ignored private environment files. Never fill an example file with real values.
-
-## Local verification
-
-Node.js 22 or newer is required. Docker is needed only for live Kubo testing.
-
-```bash
-git clone https://github.com/0xmdrakib/OrbitCID.git
-cd OrbitCID
-npm ci
-npm run security:release
-npm run typecheck
-npm test
-npm run build
-npm audit --omit=dev
-```
-
-There is no mock or local authentication bypass. Use a real Google development OAuth client and a disposable Postgres database for authenticated local development.
-
-## Deploy the frontend
-
-1. Create separate development and production databases or isolated branches on a PostgreSQL-compatible service.
-2. Set the pooled owner URL as `DATABASE_URL` and run `npm --workspace frontend run db:migrate`.
-3. Generate a base64url tenant password, set it temporarily as `ORBITCID_TENANT_PASSWORD`, and run `npm --workspace frontend run db:configure-tenant`. Build `TENANT_DATABASE_URL` with that restricted login.
-4. Run `npm --workspace frontend run db:verify-isolation`.
-5. Create a Google OAuth Web application with `/api/auth/callback/google` as the exact callback path.
-6. Generate the grant-signing key with `npm --workspace frontend run key:generate`.
-7. Import this repository into Vercel, set **Root Directory** to `frontend`, and add every value from [`frontend/.env.example`](frontend/.env.example) as Environment Variables.
-
-Production deploys are created from the repository's `main` branch.
-
 ## Deploy and pair a backend
 
 On a persistent Linux host with Docker:
