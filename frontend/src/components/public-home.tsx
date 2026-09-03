@@ -25,7 +25,7 @@ export function PublicHome() {
       </div>
     </section>
 
-    <section className="stat-strip" aria-label="Platform principles"><div><span>01</span><strong>Publicly inspectable frontend</strong><small>Sign in only when you act.</small></div><div><span>02</span><strong>No shared backend credentials</strong><small>Five-minute scoped grants.</small></div><div><span>03</span><strong>True IPFS data plane</strong><small>Persistent Kubo + DHT + Bitswap.</small></div></section>
+    <section className="stat-strip" aria-label="Platform principles"><div><span>01</span><strong>Publicly inspectable frontend</strong><small>Sign in only when you act.</small></div><div><span>02</span><strong>No shared backend credentials</strong><small>Short-lived, scoped access.</small></div><div><span>03</span><strong>True IPFS data plane</strong><small>Persistent Kubo + DHT + Bitswap.</small></div></section>
 
     <section className="section-heading" id="architecture"><p className="eyebrow">CLEAR RESPONSIBILITY</p><h2>Three layers.<br/>No blurred trust.</h2><p>The hosted application never becomes your storage server. An isolated control layer stores account state; content travels directly between your browser and the backend you paired.</p></section>
     <section className="architecture-grid">
@@ -34,6 +34,6 @@ export function PublicHome() {
       <article><span className="step">03</span><Icon name="server" size={30}/><h3>Your IPFS backend</h3><p>Run Kubo anywhere with persistent storage. The browser receives a short-lived grant valid only for your connected backend.</p><ul><li>Direct streaming uploads</li><li>Private Kubo RPC</li><li>Optional encrypted backup</li></ul></article>
     </section>
 
-    <section className="security-panel" id="security"><div><p className="eyebrow">FAIL-CLOSED CONNECTION</p><h2>A connection—not a copied API key.</h2><p>A one-time pairing code binds one Google user to one backend public key. Long-lived backend secrets never enter localStorage, source code, or the browser bundle.</p><Link className="light-button" href="/console">Open console <Icon name="arrow"/></Link></div><ol><li><span>1</span>Create a 10-minute claim after Google login.</li><li><span>2</span>Your backend proves possession of its Ed25519 key.</li><li><span>3</span>Vercel issues audience-bound, five-minute grants.</li><li><span>4</span>The backend verifies owner, scope, expiry and replay.</li></ol></section>
+    <section className="security-panel" id="security"><div><p className="eyebrow">SECURE BACKEND PAIRING</p><h2>Pair your backend.<br/>Keep control.</h2><p>OrbitCID links your signed-in workspace to the backend you own. Your permanent credentials remain on your infrastructure.</p><Link className="light-button" href="/console">Open console <Icon name="arrow"/></Link></div><ol><li><span>1</span>Sign in with your Google account.</li><li><span>2</span>Create a one-time pairing code.</li><li><span>3</span>Enter the code on your backend.</li><li><span>4</span>Start managing your own IPFS node.</li></ol></section>
   </main>;
 }

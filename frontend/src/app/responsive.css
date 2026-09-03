@@ -83,6 +83,89 @@
   text-underline-offset: 4px;
 }
 
+.account-menu-wrap {
+  position: relative;
+}
+
+.account-trigger {
+  color: var(--ink);
+  background: var(--white);
+  text-align: left;
+}
+
+.account-trigger > svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.account-trigger[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
+
+.account-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 100;
+  width: 270px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--white);
+  box-shadow: 0 22px 55px #34291f1f;
+}
+
+.account-popover-identity {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px 14px;
+  border-bottom: 1px solid var(--soft);
+}
+
+.account-popover-identity small,
+.account-popover-identity span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-popover a,
+.account-popover button {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 5px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.account-popover a:hover,
+.account-popover button:hover {
+  background: var(--canvas);
+}
+
+.account-popover button {
+  color: var(--red);
+}
+
+.sign-in-short {
+  display: none;
+}
+
+@media (max-width: 1050px) {
+  .account-actions { margin-left: auto; }
+  .account-chip .avatar-fallback { display: grid; }
+}
+
 .legal-main {
   max-width: 1120px;
   margin: 0 auto;
@@ -138,6 +221,12 @@
 }
 
 @media (max-width: 740px) {
+  .account-actions { display: flex; }
+  .header-sign-in { min-height: 48px; padding: 0 14px; }
+  .sign-in-long { display: none; }
+  .sign-in-short { display: inline; }
+  .session-skeleton { width: 52px; }
+  .account-popover { position: fixed; top: 82px; right: 12px; left: 12px; width: auto; }
   .site-footer nav { gap: 16px; }
   .legal-main { padding: 34px 14px 22px; }
   .legal-card { padding: 34px 24px; border-radius: 34px; }
