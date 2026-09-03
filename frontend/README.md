@@ -6,7 +6,7 @@ The frontend is a Next.js application designed for Vercel. Its public page is in
 
 - Better Auth Google OAuth and revocable database sessions
 - Google profile/avatar navigation
-- Neon tenant state and forced RLS
+- tenant-isolated control state and enforced row-level security
 - one-time backend pairing claims
 - short-lived, scoped backend grants
 - direct browser-to-backend upload and pin controls

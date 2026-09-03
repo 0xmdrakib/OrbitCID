@@ -22,7 +22,7 @@ The pairing code is entered interactively and is not written to Compose environm
 
 ## Optional R2 backup
 
-Configure R2 from the signed-in frontend. The agent image includes rclone and executes an encrypted CAR backup without exposing credentials to Vercel or Neon. Preserve the pairing volume because its private key is required to derive the backup encryption key.
+Configure R2 from the signed-in frontend. The agent image includes rclone and executes an encrypted CAR backup without exposing credentials to the hosted control plane. Preserve the pairing volume because its private key is required to derive the backup encryption key.
 
 Restore the latest frontend-managed R2 snapshot, or provide an explicit timestamp:
 

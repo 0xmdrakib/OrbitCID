@@ -3,7 +3,7 @@
 ## Protected assets
 
 - Google-linked identities and revocable sessions
-- Per-user connection, preference, and activity rows in Neon
+- Per-user connection, preference, and activity rows in the control database
 - Frontend grant-signing private key
 - Backend pairing private key and Kubo pin state
 - Optional R2 credentials and encrypted CAR snapshots
@@ -11,7 +11,7 @@
 ## Trust boundaries
 
 - Browser to Vercel and Better Auth
-- Vercel functions to Neon owner and restricted tenant roles
+- Hosted functions to privileged and restricted database roles
 - Browser to the selected HTTPS backend
 - Pairing client to the one-time Vercel claim endpoint
 - OrbitCID agent to private Kubo RPC
@@ -33,7 +33,7 @@
 | Kubo RPC exposure | RPC and local gateway stay on loopback/container networking |
 | Oversized input | Declared and streamed upload limits, bounded JSON, timeouts |
 | Path traversal/CID confusion | Strict CID/path parsing and rejection of dot, backslash, and NUL segments |
-| R2 secret disclosure | Direct browser-to-backend delivery, one-use backup grant, AES-256-GCM local envelope, no secret in Neon/activity/status |
+| R2 secret disclosure | Direct browser-to-backend delivery, one-use backup grant, AES-256-GCM local envelope, no secret in control data, activity, or status |
 | R2 account overreach | Documentation and UI require bucket-scoped Object Read & Write credentials, never a global key |
 | R2 object disclosure | Private bucket plus rclone crypt content and filename encryption |
 | Backend disk loss | Persistent storage plus encrypted offsite CAR snapshots and restore testing |
@@ -45,7 +45,7 @@
 - A compromised Vercel signing key can mint grants; revoke connections, rotate the key, and re-pair.
 - Root compromise of the backend can access Kubo data and pairing-derived backup material.
 - Losing the backend pairing identity can make encrypted R2 snapshots unrecoverable.
-- Neon database owners bypass the restricted application role and remain privileged recovery operators.
+- Control-database owners bypass the restricted application role and remain privileged recovery operators.
 - One Kubo node cannot provide availability during host, disk, or network failure.
 - Public IPFS content cannot be recalled from independent peers.
 

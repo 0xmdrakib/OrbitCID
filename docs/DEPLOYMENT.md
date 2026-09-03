@@ -1,12 +1,12 @@
 # Deployment guide
 
-OrbitCID uses one production architecture: Vercel for the frontend, Neon for tenant control state, and a persistent self-hosted Kubo backend. Cloudflare R2 is an optional per-backend encrypted backup destination, not the primary database or IPFS node.
+OrbitCID uses one production architecture: a hosted frontend, an isolated control database, and a persistent self-hosted Kubo backend. Cloudflare R2 is an optional per-backend encrypted backup destination, not the primary database or IPFS node.
 
 Examples use `example.com` and blank values. Never commit database URLs, OAuth secrets, pairing files, `.env.local`, R2 credentials, or generated keys.
 
-## 1. Neon database
+## 1. Control database
 
-Create separate Neon branches or projects for development, preview, and production. Use the pooled owner URL only for Better Auth, migrations, and the pairing-claim service transaction.
+Create separate PostgreSQL-compatible databases or isolated branches for development, preview, and production. Use the pooled privileged URL only for authentication, migrations, and the pairing-claim service transaction.
 
 ```bash
 npm --workspace frontend run db:migrate
@@ -114,7 +114,7 @@ In the frontend console:
 4. Save the encrypted configuration.
 5. Run a backup and monitor its status.
 
-The credential request goes directly from the browser to the selected backend with a one-use, five-minute `backup` grant. Neon stores only a non-secret activity event. The backend stores an AES-256-GCM envelope; backup content and names are encrypted through rclone crypt before upload.
+The credential request goes directly from the browser to the selected backend with a one-use, five-minute `backup` grant. The control database stores only a non-secret activity event. The backend stores an AES-256-GCM envelope; backup content and names are encrypted through rclone crypt before upload.
 
 The pairing identity protects the configuration and supplies backup encryption material. Preserve an offline recovery copy of the private pairing volume. Losing it means losing access to the encrypted backup configuration and snapshots.
 
@@ -126,9 +126,9 @@ R2 is optional. Leaving it unconfigured does not affect uploads, pins, retrieval
 
 - Verify Google login/logout, session revocation, and avatar rendering.
 - Confirm anonymous mutation APIs return `401`.
-- Run the Neon RLS isolation check.
+- Run the tenant row-isolation check.
 - Prove wrong-user, wrong-audience, wrong-scope, expired, and replayed grants fail.
-- Confirm R2 credentials do not appear in Neon rows, frontend storage, logs, or status responses.
+- Confirm R2 credentials do not appear in control rows, frontend storage, logs, or status responses.
 - Verify the encrypted local R2 envelope contains no plaintext access key.
 - Upload 1 MiB-boundary and multi-chunk files.
 - Retrieve a test CID through the authenticated backend route.

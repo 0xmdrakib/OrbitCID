@@ -65,7 +65,7 @@
   }
 
   .planet-user { left: 0; top: 2%; }
-  .planet-neon { right: 0; top: 6%; }
+  .planet-data { right: 0; top: 6%; }
   .planet-node { right: 2%; bottom: 1%; }
   .core { left: 30%; top: 39%; }
   .backup-panel .panel-head{align-items:stretch;flex-direction:column}

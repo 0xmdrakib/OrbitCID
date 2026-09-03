@@ -5,7 +5,7 @@
   "workspaces": [
     "frontend"
   ],
-  "description": "Vercel and Neon control surface for secure, self-hosted Kubo IPFS infrastructure",
+  "description": "Secure control surface for self-hosted Kubo IPFS infrastructure",
   "license": "MIT",
   "type": "module",
   "scripts": {
