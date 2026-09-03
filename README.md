@@ -42,27 +42,34 @@ Kubo is the true IPFS data plane. It participates in libp2p, DHT, Bitswap, and t
 | [`docs`](docs) | Deployment and threat-model documentation |
 | [`test`](test) | Pairing, grant, replay, tenant-isolation, and backup-security tests |
 
-## Deploy and pair a backend
+## Deploy a backend
 
-On a persistent Linux host with Docker:
+On a persistent Linux host with Docker, create `backend/.env` from the example, add the required origins and operational limits, then start the node:
 
 ```bash
 cd infra/node
 cp ../../backend/.env.example ../../backend/.env
-# Fill only the exact frontend and backend origins plus operational limits.
 docker compose --env-file ../../backend/.env up -d --build kubo agent
 ```
 
-Expose `4001/TCP` and `4001/UDP` for the IPFS swarm. Keep `5001`, `8080`, and `8788` on loopback. Publish port `8788` through an HTTPS reverse proxy such as Caddy, nginx, or your hosting provider's private ingress; never expose Kubo RPC.
+| Port | Exposure |
+| --- | --- |
+| `4001/TCP + UDP` | Public IPFS swarm |
+| `8788` | HTTPS reverse proxy or private ingress |
+| `5001`, `8080` | Loopback only — never expose Kubo RPC |
 
-To pair the node:
+### Pair with the frontend
 
-1. Sign in to the Vercel frontend.
-2. Create a named one-time pairing code.
-3. Run `docker compose --env-file ../../backend/.env --profile pair run --rm pair` on the backend.
-4. Paste the code at the terminal prompt and restart the agent.
+1. Sign in to the hosted frontend and create a named one-time pairing code.
+2. Run the pairing command on the backend:
 
-The generated `pairing.json` stays in a private Docker volume. Revoking the connection prevents new grants; existing grants expire within five minutes.
+   ```bash
+   docker compose --env-file ../../backend/.env --profile pair run --rm pair
+   ```
+
+3. Paste the code at the prompt, then restart the agent.
+
+The generated `pairing.json` remains in a private Docker volume. Revocation blocks new grants immediately; issued grants expire within five minutes.
 
 ## Optional Cloudflare R2 backup
 
