@@ -5,7 +5,7 @@ import "./globals.css";
 import "./responsive.css";
 
 export const metadata: Metadata = {
-  title: { default: "OrbitCID — Self-hosted IPFS", template: "%s · OrbitCID" },
+  title: { default: "OrbitCID | Self-hosted IPFS", template: "%s | OrbitCID" },
   description: "A secure Vercel control surface for IPFS infrastructure you own.",
   robots: { index: true, follow: true }
 };
