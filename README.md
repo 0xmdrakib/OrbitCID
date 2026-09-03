@@ -1,5 +1,7 @@
 # OrbitCID
 
+**Live application:** [ipfs.rakibhq.xyz](https://ipfs.rakibhq.xyz)
+
 OrbitCID is an open-source control surface for IPFS infrastructure you own. It combines a public web frontend, Google sign-in, tenant-isolated control state, and a persistent Kubo backend that can run on a PC, VPS, NAS, or cloud VM.
 
 Each deployment supplies its own OAuth application, control database, domain, Kubo node, and secrets. This repository contains no hosted operator URL or real environment value.
