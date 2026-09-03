@@ -2,7 +2,7 @@ export function Icon({ name, size = 20 }: { name: "arrow" | "check" | "database"
   const paths: Record<typeof name, React.ReactNode> = {
     arrow: <><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></>,
     check: <path d="m5 12 4 4L19 6"/>,
-    database: <><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></>,
+    database: <><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/><path d="M3 12c0 1.7 4 3 9 3s9-1.3 9-3"/></>,
     link: <><path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1-.1l-2 2A5 5 0 0 0 12 20l1.1-1.1"/></>,
     lock: <><rect x="4" y="10" width="16" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></>,
     menu: <><path d="M4 7h16M4 12h16M4 17h16"/></>,

@@ -19,7 +19,7 @@ export function PublicHome() {
       <div className="orbit-stage" aria-hidden="true">
         <svg viewBox="0 0 620 520"><ellipse cx="310" cy="260" rx="245" ry="112" transform="rotate(-24 310 260)"/><ellipse cx="310" cy="260" rx="225" ry="98" transform="rotate(28 310 260)"/></svg>
         <div className="planet planet-user"><Icon name="shield"/><strong>Google</strong><small>verified identity</small></div>
-        <div className="planet planet-data"><Icon name="database"/><strong>Private state</strong><small>tenant-isolated</small></div>
+        <div className="planet planet-data"><Icon name="database" size={24}/><strong>Private state</strong><small>tenant-isolated</small></div>
         <div className="planet planet-node"><Icon name="server"/><strong>Kubo</strong><small>your infrastructure</small></div>
         <div className="core"><Icon name="orbit" size={34}/><strong>OrbitCID</strong></div>
       </div>
