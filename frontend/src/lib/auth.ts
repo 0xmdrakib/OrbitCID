@@ -17,10 +17,46 @@ function buildAuth() {
         prompt: "select_account"
       }
     },
+    user: {
+      fields: {
+        emailVerified: "email_verified",
+        createdAt: "created_at",
+        updatedAt: "updated_at"
+      }
+    },
     session: {
+      fields: {
+        userId: "user_id",
+        expiresAt: "expires_at",
+        ipAddress: "ip_address",
+        userAgent: "user_agent",
+        createdAt: "created_at",
+        updatedAt: "updated_at"
+      },
       expiresIn: 60 * 60 * 24 * 7,
       updateAge: 60 * 60 * 24,
       cookieCache: { enabled: true, maxAge: 60 * 5, strategy: "jwe" }
+    },
+    account: {
+      fields: {
+        providerId: "provider_id",
+        accountId: "account_id",
+        userId: "user_id",
+        accessToken: "access_token",
+        refreshToken: "refresh_token",
+        idToken: "id_token",
+        accessTokenExpiresAt: "access_token_expires_at",
+        refreshTokenExpiresAt: "refresh_token_expires_at",
+        createdAt: "created_at",
+        updatedAt: "updated_at"
+      }
+    },
+    verification: {
+      fields: {
+        expiresAt: "expires_at",
+        createdAt: "created_at",
+        updatedAt: "updated_at"
+      }
     },
     advanced: {
       cookiePrefix: "orbitcid",
