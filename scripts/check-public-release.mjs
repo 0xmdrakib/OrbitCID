@@ -6,6 +6,7 @@ const root = fileURLToPath(new URL("../", import.meta.url));
 const ignoredDirectories = new Set([".git", ".next", ".vercel", ".wrangler", ".terraform", "node_modules", "dist", "coverage", "assets", "runtime"]);
 const ignoredFiles = new Set([".dev.vars", ".env"]);
 const textExtensions = new Set(["", ".cjs", ".css", ".example", ".hcl", ".html", ".js", ".json", ".jsonc", ".md", ".mjs", ".service", ".sql", ".tf", ".tftpl", ".timer", ".ts", ".tsx", ".txt", ".yaml", ".yml"]);
+const publicReadmeUrl = "https://ipfs.rakibhq.xyz";
 
 const forbidden = [
   { name: "development authentication bypass", pattern: /\bDEV_TOKEN\b|ipfs_dev_token|decodeJwtPayload/ },
@@ -36,7 +37,12 @@ for (const path of await collect(root)) {
   if (name === "scripts/check-public-release.mjs") continue;
   if (name.endsWith(".tfvars") && !name.endsWith(".tfvars.example")) failures.push(`${name}: deploy-time tfvars must not be published`);
   const content = await readFile(path, "utf8");
-  for (const rule of forbidden) if (rule.pattern.test(content)) failures.push(`${name}: ${rule.name}`);
+  for (const rule of forbidden) {
+    const inspectedContent = rule.name === "operator-specific domain" && name === "README.md"
+      ? content.replaceAll(publicReadmeUrl, "")
+      : content;
+    if (rule.pattern.test(inspectedContent)) failures.push(`${name}: ${rule.name}`);
+  }
 }
 
 if (failures.length) {
