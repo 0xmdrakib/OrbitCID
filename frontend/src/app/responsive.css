@@ -17,6 +17,11 @@
   overflow: visible;
 }
 
+.orbit-stage .planet-data > svg ellipse {
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
 .core,
 .planet {
   align-content: center;
