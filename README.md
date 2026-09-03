@@ -1,12 +1,10 @@
 # OrbitCID
 
-*Own your node. Control your orbit.*
+Own your node. Control your orbit.
 
 OrbitCID is a secure, open-source control surface that connects a signed-in web workspace to self-hosted Kubo IPFS infrastructure.
 
 **Live app:** [https://ipfs.rakibhq.xyz](https://ipfs.rakibhq.xyz)
-
-> **Project status:** pre-1.0. Complete the security, backup, restore, and independent-peer acceptance checks before relying on OrbitCID for important production data.
 
 ---
 
