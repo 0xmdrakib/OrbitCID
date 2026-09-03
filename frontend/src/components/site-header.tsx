@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
+import { BrandMark } from "./brand-mark";
 import { Icon } from "./icons";
 
 function Avatar({ image, name }: { image?: string | null; name?: string | null }) {
@@ -35,7 +36,7 @@ export function SiteHeader() {
   const signOut = () => { setAccountMenu(false); void authClient.signOut({ fetchOptions: { onSuccess: () => { window.location.href = "/"; } } }); };
   return <header className="site-header">
     <nav className="nav-pill" aria-label="Main navigation">
-      <Link className="wordmark" href="/"><span className="mark"><Icon name="orbit" size={24}/></span><span><strong>OrbitCID</strong><small>IPFS, under your control</small></span></Link>
+      <Link className="wordmark" href="/"><span className="mark"><BrandMark size={35} tone="light"/></span><span><strong>OrbitCID</strong><small>IPFS, under your control</small></span></Link>
       <div className="nav-links">
         <Link href="/console">Console</Link>
       </div>

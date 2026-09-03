@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
+import { BrandMark } from "./brand-mark";
 import { Icon } from "./icons";
 
 export function PublicHome() {
@@ -13,7 +14,7 @@ export function PublicHome() {
       <div className="hero-copy">
         <p className="eyebrow">SELF-HOSTED IPFS PLATFORM</p>
         <h1>Your frontend.<br/><em>Your node.</em><br/>One secure orbit.</h1>
-        <p>OrbitCID gives every signed-in user an isolated control space, then connects it to an IPFS backend they own—on a PC, VPS, or cloud server.</p>
+        <p>OrbitCID gives every signed-in user an isolated control space, then connects it to an IPFS backend you own on a PC, VPS, or cloud server.</p>
         <div className="hero-actions"><button className="ink-button large" onClick={begin}>{session?.user ? "Open your console" : "Start with Google"}<Icon name="arrow"/></button><a className="text-link" href="https://github.com/0xmdrakib/OrbitCID" target="_blank" rel="noreferrer">View source</a></div>
       </div>
       <div className="orbit-stage" aria-hidden="true">
@@ -21,7 +22,7 @@ export function PublicHome() {
         <div className="planet planet-user"><Icon name="shield"/><strong>Google</strong><small>verified identity</small></div>
         <div className="planet planet-data"><Icon name="database"/><strong>Private state</strong><small>tenant-isolated</small></div>
         <div className="planet planet-node"><Icon name="server"/><strong>Kubo</strong><small>your infrastructure</small></div>
-        <div className="core"><Icon name="orbit" size={34}/><strong>OrbitCID</strong></div>
+        <div className="core"><BrandMark size={72} tone="light"/><strong>OrbitCID</strong></div>
       </div>
     </section>
 
