@@ -1,0 +1,31 @@
+{
+  "name": "@orbitcid/frontend",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "db:migrate": "node scripts/migrate.mjs",
+    "db:verify-isolation": "node scripts/verify-tenant-isolation.mjs",
+    "key:generate": "node scripts/generate-grant-key.mjs"
+  },
+  "dependencies": {
+    "better-auth": "1.7.2",
+    "jose": "6.2.8",
+    "next": "16.3.4",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "pg": "8.16.3",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "26.1.2",
+    "@types/pg": "8.15.5",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "typescript": "7.0.2"
+  }
+}

@@ -5,11 +5,12 @@ This Compose stack runs the true IPFS portion of OrbitCID on any reputable Linux
 ## Services
 
 - `kubo`: persistent IPFS node, WAN DHT, Bitswap, gateway, and local RPC
-- `agent`: authenticated control-plane bridge and private Kubo fallback gateway
+- `agent`: verifies user/backend/scoped Vercel grants and exposes a narrow streaming API
+- `pair`: one-shot pairing client that binds the node to a Google-authenticated user
 - `tunnel`: optional Cloudflare Tunnel profile
 - `backup`: on-demand portable CAR backup and restore through an encrypted rclone remote
 
-Only the configured swarm port (default `4001/TCP+UDP`) is public. Kubo RPC `5001` and gateway `8080` bind to host loopback even when their host port numbers are changed. Never expose RPC directly to the internet.
+Only the configured swarm port (default `4001/TCP+UDP`) is public. Kubo RPC `5001`, gateway `8080`, and agent `8788` bind to host loopback even when their host port numbers are changed. Publish the agent through HTTPS; never expose Kubo RPC directly to the internet.
 
 ## Start
 
@@ -19,6 +20,17 @@ docker compose up -d kubo agent
 # With a configured Cloudflare Tunnel token:
 docker compose --profile tunnel up -d
 ```
+
+Set `ORBITCID_FRONTEND_ORIGIN` and `ORBITCID_BACKEND_PUBLIC_URL` to exact origins. The Tunnel or reverse proxy must route the backend hostname to `http://agent:8788`.
+
+Create a one-time claim in the frontend, then pair from this directory:
+
+```bash
+docker compose --profile pair run --rm pair
+docker compose up -d agent
+```
+
+The code is read interactively and is not written to the Compose environment. The private pairing record stays in the `agent-staging` volume. Vercel issues five-minute grants; the agent checks signature, issuer, owner, backend audience, scope, expiry, CORS origin, request rate, and mutation replay before calling Kubo.
 
 Use a persistent provider disk or bind mount in production. Docker named volumes are convenient but the operator must understand where the provider stores them.
 
@@ -60,7 +72,7 @@ docker compose --profile backup run --rm --entrypoint /usr/local/bin/restore.sh 
 
 Test restore regularly on a clean node. A backup that has never been restored is not a verified recovery plan.
 
-## Control-plane recovery copies
+## Optional Cloudflare control-plane recovery copies
 
 OrbitCID writes paginated AES-256-GCM metadata recovery snapshots to the private recovery R2 bucket. Configure an R2 rclone remote with read-only credentials and copy that bucket into the separate encrypted backup remote on a schedule:
 

@@ -177,6 +177,7 @@ resource "google_compute_instance" "kubo" {
     block-project-ssh-keys = "TRUE"
     startup-script = templatefile("${path.module}/../kubo/startup.sh.tftpl", {
       bridge_source     = filebase64("${path.module}/../kubo/bridge.mjs")
+      grant_auth_source = filebase64("${path.module}/../../backend/grant-auth.mjs")
       bridge_token      = each.value.bridge_token
       cloudflared_token = data.cloudflare_zero_trust_tunnel_cloudflared_token.kubo[each.key].token
       kubo_image        = var.kubo_image

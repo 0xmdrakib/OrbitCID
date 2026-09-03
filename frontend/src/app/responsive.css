@@ -1,0 +1,69 @@
+.orbit-stage > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.orbit-stage .planet > svg,
+.orbit-stage .core > svg {
+  position: static;
+  inset: auto;
+  width: auto;
+  height: auto;
+  overflow: visible;
+}
+
+.core,
+.planet {
+  align-content: center;
+  gap: 4px;
+}
+
+@media (min-width: 1051px) {
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(420px, .85fr);
+    align-items: end;
+    gap: 20px;
+  }
+
+  .orbit-stage {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    height: 500px;
+    align-self: end;
+  }
+
+  .planet-user { left: 18%; }
+}
+
+@media (min-width: 741px) and (max-width: 1050px) {
+  .hero { min-height: 940px; }
+  .orbit-stage { right: -5%; bottom: -2%; width: 105%; height: 48%; }
+  .planet-user { left: 22%; }
+}
+
+@media (max-width: 740px) {
+  .hero {
+    display: block;
+    min-height: auto;
+  }
+
+  .orbit-stage {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    height: 390px;
+    margin-top: 28px;
+  }
+
+  .planet-user { left: 0; top: 2%; }
+  .planet-neon { right: 0; top: 6%; }
+  .planet-node { right: 2%; bottom: 1%; }
+  .core { left: 30%; top: 39%; }
+}

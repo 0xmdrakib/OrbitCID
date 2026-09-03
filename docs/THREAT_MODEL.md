@@ -2,44 +2,62 @@
 
 ## Protected assets
 
-- Private object and block bytes in R2
-- Project ownership and visibility decisions
-- Admin identity and password sessions
-- Project API keys, IPNS signing material, recovery keys, and bridge credentials
-- Availability and integrity of published roots
+- Google-linked account identity and revocable sessions
+- Per-user backend connection state, preferences, and activity rows in Neon
+- Frontend grant-signing private key
+- Backend pairing private key and emergency bridge credential
+- Private IPFS content and Kubo pin state
+- Encrypted CAR backups and their independent recovery keys
+- Optional Cloudflare provider content, project ownership, and publication decisions
 
 ## Trust boundaries
 
-- Browser to Cloudflare Access and Worker
-- Project client to machine API
-- Worker to D1, R2, Durable Objects, Queues, and Workflows
-- Worker to Kubo bridge through Cloudflare Tunnel
-- Kubo to the public IPFS network
+- Browser to Vercel and Better Auth
+- Vercel functions to Neon owner and restricted tenant roles
+- Browser to the user-selected HTTPS backend
+- Pairing client to the one-time Vercel claim endpoint
+- OrbitCID agent to loopback/container-only Kubo RPC
+- Kubo to libp2p, DHT, Bitswap, and the public IPFS network
+- Backup job to a separately credentialed storage provider
 
 ## Primary threats and controls
 
 | Threat | Control |
 | --- | --- |
-| Anonymous admin access | Cloudflare Access plus verified JWT and independent password session |
-| Stolen database | Project and session secrets stored as peppered hashes; recovery exports encrypted |
-| Cross-project CID discovery | Project ownership ledgers and project-scoped queries return `404` |
-| SSRF during import | CID-only input and configured trustless gateway allowlist |
-| Malformed CAR or DAG bomb | Root/hash verification, block size/count/depth limits, bounded imports |
-| Gateway active content | Separate origin, no cookies, `nosniff`, sandbox CSP, immutable policy |
-| Replay or brute force | Expiring signed tickets, single-use previews, atomic rate limits, scoped keys |
-| Kubo API exposure | API and gateway bind to loopback; only swarm ports are public; bridge uses Tunnel and bearer auth |
-| Object-storage outage | Worker attempts an authenticated, project-authorized Kubo fallback; agent gateway cannot be called anonymously |
-| VPS disk loss | Recursive pins are exported as checksummed portable CAR snapshots to an encrypted off-provider remote |
-| Backup-provider disclosure | rclone crypt encrypts content and names before upload; control-plane pages are separately protected by AES-256-GCM |
-| Corrupt or incomplete backup | CAR checksums, authenticated metadata pages, manifest row counts, and mandatory clean-node restore drills |
-| Accidental secret publication | Ignore rules, safe examples, release scanner, CI, and documented secret workflow |
-| Public-content deletion expectation | Explicit acknowledgement that third-party IPFS copies cannot be recalled |
+| Anonymous private action | Server-validated Better Auth session is required; the public page remains read-only |
+| OAuth login CSRF or code injection | Better Auth state, PKCE, exact callbacks, trusted origins, HttpOnly/Secure/SameSite cookies |
+| User A reads or changes user B | Server-derived user ID on every route, parameterized queries, restricted DB role, forced Postgres RLS |
+| Browser steals permanent backend credentials | No permanent backend credential is placed in JavaScript or localStorage; five-minute scoped grants are used |
+| Backend is paired by an attacker | 256-bit single-use claim, ten-minute expiry, Ed25519 proof of possession, atomic claim consumption |
+| Grant used against another backend | JWT `aud` is the immutable backend connection ID and is checked by the agent |
+| Grant used as another user | JWT `sub` must match the owner bound in local pairing configuration |
+| Grant scope escalation | Agent checks the required scope for every route; Kubo RPC itself remains private |
+| Mutation replay | Unique JWT ID is consumed once for upload/pin mutations and expires with the grant |
+| Cross-origin browser request | Exact paired frontend origin in CORS; no wildcard with credentials; Vercel mutations verify same origin |
+| Kubo API exposure | RPC and local gateway bind to loopback/container networking; only the agent and Kubo swarm are reachable |
+| Oversized upload/CAR | Declared and streamed byte limits, bounded request JSON, Kubo-side chunking, timeouts |
+| Path traversal or CID confusion | Strict CID/path parsing, rejected dot/backslash/NUL segments, no arbitrary filesystem path input |
+| Pairing SSRF | Backend claims outbound to Vercel; Vercel does not fetch the user-supplied backend URL during pairing |
+| Database credential disclosure | Separate owner/tenant URLs, production-only Vercel secrets, no client exposure, provider rotation procedure |
+| VPS disk loss | Persistent volumes plus checksummed CAR export to encrypted off-provider storage |
+| Backup provider disclosure | rclone crypt encrypts names and content before transfer; credentials and encryption password are separate |
+| Public-content deletion expectation | Documentation warns that third-party IPFS peers can retain already published bytes |
+| Accidental secret publication | Ignore rules, blank examples, release scanner, CI, CodeQL, and no tracked runtime pairing file |
+
+## Important residual risks
+
+- A compromised authorized browser session can perform actions available to that user until revoked.
+- A compromised Vercel grant-signing key can mint grants; rotate the key, revoke connections, and re-pair backends.
+- A compromised backend can read content stored on that backend and use its local Kubo identity.
+- RLS protects application access through the restricted role; the Neon database owner remains a privileged recovery role.
+- A single Kubo node cannot provide high availability during host, disk, or network failure.
+- Content published to public IPFS cannot be recalled from independent peers.
 
 ## Out of scope
 
+- Protecting plaintext after an authorized user downloads or decrypts it
 - Deleting data already copied by third-party IPFS peers
-- Protecting plaintext after an authorized client downloads it
-- Compromise of the operator's Cloudflare, Google, or GitHub account
-- Availability guarantees from a single Kubo node
+- Compromise of the operator's Google, Vercel, Neon, cloud-provider, or GitHub account
+- Availability guarantees from a single-node deployment
 
-Security-sensitive changes should add regression tests and update this document.
+Security-sensitive changes must add a regression test and update this document when a boundary changes.

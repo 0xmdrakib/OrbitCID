@@ -32,12 +32,17 @@ services:
       KUBO_GATEWAY: http://kubo:8080
       PORT: "8788"
       BRIDGE_TOKEN: ${BRIDGE_TOKEN:?BRIDGE_TOKEN is required}
-      ADMIN_ORIGIN: ${ADMIN_ORIGIN:?ADMIN_ORIGIN is required}
+      ADMIN_ORIGIN: ${ADMIN_ORIGIN:-}
       MAX_CAR_BYTES: ${MAX_CAR_BYTES:-536870912000}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES:-536870912000}
+      PAIRING_CONFIG_PATH: /var/lib/orbitcid/pairing.json
       TMPDIR: /var/lib/orbitcid
     volumes:
       - ../kubo/bridge.mjs:/app/bridge.mjs:ro
+      - ../../backend/grant-auth.mjs:/app/grant-auth.mjs:ro
       - agent-staging:/var/lib/orbitcid
+    ports:
+      - "127.0.0.1:${AGENT_PORT:-8788}:8788"
     command: ["node", "/app/bridge.mjs"]
     depends_on:
       kubo:
@@ -48,6 +53,23 @@ services:
       timeout: 10s
       retries: 5
       start_period: 10s
+    security_opt:
+      - no-new-privileges:true
+
+  pair:
+    image: ${AGENT_IMAGE:-node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32}
+    profiles: ["pair"]
+    read_only: true
+    environment:
+      ORBITCID_FRONTEND_ORIGIN: ${ORBITCID_FRONTEND_ORIGIN:?ORBITCID_FRONTEND_ORIGIN is required}
+      ORBITCID_BACKEND_PUBLIC_URL: ${ORBITCID_BACKEND_PUBLIC_URL:?ORBITCID_BACKEND_PUBLIC_URL is required}
+      PAIRING_CONFIG_PATH: /var/lib/orbitcid/pairing.json
+    volumes:
+      - ../../backend/pair.mjs:/app/pair.mjs:ro
+      - agent-staging:/var/lib/orbitcid
+    command: ["node", "/app/pair.mjs"]
+    stdin_open: true
+    tty: true
     security_opt:
       - no-new-privileges:true
 

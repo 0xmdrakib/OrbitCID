@@ -8,6 +8,11 @@
 .wrangler-view-error.log
 .wrangler-view.log
 node_modules/
+frontend/.next/
+frontend/.vercel/
+frontend/node_modules/
+frontend/tsconfig.tsbuildinfo
+backend/runtime/
 .wrangler/
 .dev.vars
 .dev.vars.*

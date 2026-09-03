@@ -1,9 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "npm run build:dashboard",
-  "outputDirectory": "public",
-  "framework": null,
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  "buildCommand": "npm run build:frontend",
+  "outputDirectory": "frontend/.next",
+  "framework": "nextjs"
 }

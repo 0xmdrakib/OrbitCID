@@ -3,7 +3,7 @@ import { extname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
-const ignoredDirectories = new Set([".git", ".wrangler", ".terraform", "node_modules", "dist", "coverage", "assets"]);
+const ignoredDirectories = new Set([".git", ".next", ".vercel", ".wrangler", ".terraform", "node_modules", "dist", "coverage", "assets", "runtime"]);
 const ignoredFiles = new Set([".dev.vars", ".env"]);
 const textExtensions = new Set(["", ".cjs", ".css", ".example", ".hcl", ".html", ".js", ".json", ".jsonc", ".md", ".mjs", ".service", ".sql", ".tf", ".tftpl", ".timer", ".ts", ".tsx", ".txt", ".yaml", ".yml"]);
 

@@ -1,188 +1,195 @@
 # Deployment guide
 
-This guide intentionally uses `example.com`. Replace every hostname and identifier with values from your own accounts. Never commit the resulting `.tfvars`, `.dev.vars`, Terraform state, credentials, or generated secrets.
+This guide uses `example.com` and empty example environments. Replace them only in private provider settings. Never commit a database URL, OAuth secret, pairing file, `.env.local`, `.tfvars`, Terraform state, or generated key.
 
-Both Terraform states can contain tunnel or application secrets. Use an encrypted, access-controlled remote backend with versioning and state locking for production, or protect the local state as a recovery credential. Keep the Cloudflare and optional GCP states separate.
+## 1. Decide which profile to deploy
 
-## 1. Cloudflare prerequisites
+The profiles are independent:
 
-- Add and activate your DNS zone.
-- Enable R2.
-- Create a Cloudflare Zero Trust team.
-- Configure a Google identity provider and require MFA or passkeys in the Google account.
-- Create a narrowly scoped Cloudflare API token for Terraform. Do not use the Global API Key.
+- **Vercel profile:** public Next.js UI, Google OAuth, Neon tenant state, and user-paired Kubo backends.
+- **Cloudflare provider profile:** owner-operated Worker/R2/D1 service with projects, provider APIs, gateway policies, and Kubo replication.
 
-The control-plane Terraform token needs only the resources declared in `infra/terraform`: R2, D1, KV, Queues, and Zero Trust Access. Worker custom domains are created by Wrangler only when you deliberately add the documented routes. The optional Google module has a separate token scope for Tunnel and DNS. Worker deployment can use Wrangler's OAuth login separately.
+The Vercel profile is the default for the shared frontend described below. Cloudflare remains optional; it is not required to run Kubo.
 
-## 2. Choose dashboard placement
+## 2. Create the Neon control database
 
-The React dashboard is a static Vite application.
+Create separate Neon branches or projects for development, preview, and production. Use the pooled owner URL only for Better Auth, migrations, and the narrowly defined pairing claim transaction.
 
-### Same origin as the Worker
+Set `DATABASE_URL` in your private shell and apply the schema:
 
-Leave `VITE_API_ORIGIN` empty, build with `npm run build:dashboard`, and let Worker Assets serve `public/`. Set `APP_ORIGIN` and `DASHBOARD_ORIGIN` to the same protected HTTPS origin.
+```bash
+npm --workspace frontend run db:migrate
+```
 
-### Vercel or another static host
+The migration creates:
 
-Attach a custom hostname such as `dashboard.example.com` to the frontend host. It must remain under the same registrable domain as the API so the strict admin-session cookie stays same-site; do not use the default cross-site `*.vercel.app` URL in production. Set `VITE_API_ORIGIN=https://ipfs.example.com`, use `npm run build:dashboard`, and publish `public/`. The included `vercel.json` supplies these build/output defaults.
+- Better Auth user, account, session, and verification tables
+- `user_profiles`
+- `backend_connections`
+- `pairing_claims`
+- `user_activity`
+- `user_preferences`
+- restricted `orbitcid_tenant` and internal `orbitcid_service` roles
+- forced RLS policies on every application table
 
-Set the Worker values separately:
+Generate a unique password, replace the placeholder in `frontend/migrations/0003_tenant_role_setup.example.sql`, and execute it once as the database owner. Build `TENANT_DATABASE_URL` from the same pooled host using the `orbitcid_tenant` role.
+
+Verify the boundary before deploying:
+
+```bash
+npm --workspace frontend run db:verify-isolation
+```
+
+The check proves that user A can see only A and that an A-context transaction cannot insert a B-owned row. The test rolls back its temporary data.
+
+## 3. Configure Google OAuth
+
+In Google Cloud Console:
+
+1. Open **APIs & Services → OAuth consent screen** and configure the application.
+2. Open **Credentials → Create credentials → OAuth client ID**.
+3. Choose **Web application**.
+4. Add the exact frontend origins. Do not add wildcards.
+5. Add the exact callback paths:
 
 ```text
-APP_ORIGIN=https://ipfs.example.com
-DASHBOARD_ORIGIN=https://dashboard.example.com
+http://localhost:3000/api/auth/callback/google
+https://app.example.com/api/auth/callback/google
 ```
 
-Use an exact origin with no wildcard. Protect the dashboard and API hostnames with the intended Cloudflare Access policy. A public JavaScript bundle must never contain project API keys, bridge tokens, or cloud credentials.
+Use a different OAuth client for production if previews are available to other people. Enable MFA or passkeys on accounts allowed to administer the deployment.
 
-## 3. Configure the Cloudflare control plane
+OrbitCID requests the normal Google identity profile. It does not need Drive, Gmail, or other Google API scopes.
 
-```powershell
-Copy-Item infra/terraform/terraform.tfvars.example infra/terraform/terraform.tfvars
+## 4. Configure Vercel secrets
+
+Import the repository into Vercel. Keep the repository root as the project root; `vercel.json` selects the `frontend` workspace.
+
+Add every variable from `frontend/.env.example` in **Project Settings → Environment Variables**:
+
+- `BETTER_AUTH_URL`
+- `BETTER_AUTH_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `DATABASE_URL`
+- `TENANT_DATABASE_URL`
+- `ORBITCID_GRANT_PRIVATE_KEY`
+- `ORBITCID_GRANT_PUBLIC_KEY`
+- `ORBITCID_GRANT_KEY_ID`
+- `TRUSTED_ORIGINS`
+
+Generate the asymmetric grant key:
+
+```bash
+npm --workspace frontend run key:generate
 ```
 
-Set the Cloudflare account and zone IDs, your domain, allowed identity, and Google IdP ID. This root has no Google provider or billable VM resources, so operators using another VPS do not need any Google credential.
+The command prints values; it does not write an environment file. Transfer them directly into Vercel secrets. The private key must never be a `NEXT_PUBLIC_` variable.
 
-Pass the Cloudflare token outside the file:
+Set `BETTER_AUTH_URL` to the canonical production origin. `TRUSTED_ORIGINS` is a comma-separated allowlist for deliberate preview/custom origins; leave it empty when there are none. Redeploy after changing environment variables.
 
-```powershell
-$env:TF_VAR_cloudflare_api_token = "..."
-terraform -chdir=infra/terraform init
-terraform -chdir=infra/terraform plan -out=orbitcid.tfplan
-terraform -chdir=infra/terraform apply orbitcid.tfplan
-```
+Recommended Vercel settings:
 
-Review the saved plan before applying it. If you choose the optional GCP data plane, configure and apply the independent `infra/terraform-google` root afterward. It creates one protected primary node by default and keeps the secondary disabled. Separate roots prevent a Cloudflare-only plan from requesting Google credentials and keep their states independently recoverable.
+- production-only access for production database and OAuth credentials
+- separate preview credentials and Neon branch when previews need authentication
+- Git deployments only from reviewed branches
+- deployment logs with short retention and no request-body logging
 
-```powershell
-Copy-Item infra/terraform-google/terraform.tfvars.example infra/terraform-google/terraform.tfvars
-terraform -chdir=infra/terraform-google init
-terraform -chdir=infra/terraform-google plan -out=orbitcid-google.tfplan
-terraform -chdir=infra/terraform-google apply orbitcid-google.tfplan
-```
+## 5. Deploy the portable Kubo backend
 
-Review the GCP plan carefully. Its Compute instance, persistent disk, static IPv4 address, snapshots, and network traffic can incur charges. Operators using another VPS provider skip this root entirely and deploy the portable `infra/node` stack on their server.
-
-## 4. Configure Wrangler bindings
-
-Copy Terraform's `d1_database_id` and `kv_namespace_id` outputs into `wrangler.jsonc`. Replace:
-
-- `APP_ORIGIN` with the HTTPS admin origin
-- `GATEWAY_HOST` with the isolated public gateway hostname
-- example R2, D1, KV, Queue, Workflow, and dataset names if `resource_prefix` was changed
-
-Add the two custom domains only after the Worker is ready:
-
-```jsonc
-"routes": [
-  { "pattern": "ipfs.example.com", "custom_domain": true },
-  { "pattern": "gateway.example.com", "custom_domain": true }
-]
-```
-
-Do not expose an R2 bucket through `r2.dev`.
-
-## 5. Generate and store secrets
-
-Generate a new value for each purpose. Never reuse a value.
-
-```powershell
-npm run admin:hash-password
-npm run secret:generate
-```
-
-Store these with `npx wrangler secret put NAME`:
-
-- `ALLOWED_EMAIL`
-- `ACCESS_TEAM_DOMAIN`
-- `ACCESS_AUD`
-- `ADMIN_PASSWORD_HASH`
-- `SESSION_SECRET`
-- `PROJECT_KEY_PEPPER`
-- `RECOVERY_KEY`
-- `IPNS_SIGNING_KEY`
-- `REPLICATION_SIGNING_SECRET`
-- `KUBO_NODE_PRIMARY_URL`
-- `KUBO_NODE_PRIMARY_TOKEN`
-
-Add secondary-node values only when the optional replica is enabled.
-
-## 6. Deploy the portable true-IPFS data plane
-
-On any reputable Linux VPS with a persistent SSD and Docker:
+Use persistent SSD storage and a supported Docker host:
 
 ```bash
 cd infra/node
 cp .env.example .env
-# Set unique secrets and the protected API origin.
+```
+
+Provide private values for:
+
+- `BRIDGE_TOKEN` — emergency/control-plane credential, at least 32 random bytes
+- `ORBITCID_FRONTEND_ORIGIN` — exact canonical Vercel/custom origin
+- `ORBITCID_BACKEND_PUBLIC_URL` — exact public HTTPS agent origin
+- `TUNNEL_TOKEN` — only when using the Tunnel profile
+- backup variables — only when enabling backups
+
+Start the persistent node:
+
+```bash
 docker compose up -d kubo agent
 docker compose --profile tunnel up -d
 ```
 
-Open only `4001/TCP` and `4001/UDP` to the public internet. The Compose file publishes Kubo RPC `5001` and gateway `8080` to host loopback only. Confirm the provider firewall and host firewall agree.
+Network policy:
 
-The `server` profile is applied when a new Kubo repository is initialized. Kubo runs from a pinned stable image version. Upgrade only after reading Kubo release notes, taking a backup, and testing restore.
+- allow `4001/TCP` and `4001/UDP` from the internet for libp2p
+- keep `5001` Kubo RPC on loopback/container networking
+- keep `8080` Kubo gateway on loopback/container networking
+- keep `8788` agent on loopback and publish it only through an HTTPS reverse proxy/Tunnel
+- route the backend hostname to `http://agent:8788`, never `http://kubo:5001`
 
-Configure the Worker's primary-node URL and token to match the Tunnel and node agent. OrbitCID sends signed CAR imports to the agent; the agent is the only component allowed to call Kubo RPC.
+The backend endpoint must not share cookies with the frontend and must not host arbitrary public HTML on the frontend origin.
 
-## 7. Configure off-server encrypted backups
+## 6. Pair a Google user to the backend
 
-Create an rclone backend for one of:
+In the deployed frontend:
 
-- Cloudflare R2 or AWS S3 through the S3 backend
-- Google Cloud Storage through the GCS backend
-- another supported object store or remote server
+1. Sign in with Google.
+2. Create a named pairing claim.
+3. Copy the one-time code.
 
-Wrap the backend with an rclone `crypt` remote. Encrypt `rclone.conf` itself and keep its password in a secret manager. Mount the config at `infra/node/rclone.conf`, set `RCLONE_REMOTE`, then run:
+On the backend:
+
+```bash
+docker compose --profile pair run --rm pair
+docker compose up -d agent
+```
+
+Paste the code only at the terminal prompt. The pairing client:
+
+1. Generates a backend Ed25519 key pair.
+2. Signs the code, backend origin, nonce, and timestamp.
+3. Redeems the claim over HTTPS.
+4. Downloads the frontend public signing keys.
+5. Writes `pairing.json` with mode `0600` into the private agent volume.
+
+The browser never receives `BRIDGE_TOKEN`, the backend private key, or a permanent project key. For each operation, Vercel issues a five-minute grant containing the verified user, backend audience, scopes, expiry, and unique ID.
+
+The backend pins the frontend grant-signing public key at pairing time. During a signing-key rotation, keep the previous public key in `ORBITCID_GRANT_PUBLIC_JWKS` until its five-minute grants have expired, then re-pair each backend before removing that key. If a signing key may be compromised, revoke every affected connection first and re-pair with a fresh key pair.
+
+## 7. Configure encrypted backup
+
+Create an rclone remote on R2, S3, GCS, another compatible provider, or a second server. Wrap it with rclone `crypt`, encrypt `rclone.conf`, and keep its password in a separate secret manager.
 
 ```bash
 docker compose --profile backup run --rm backup
-```
-
-The backup exports every recursive pin as a portable CAR, writes SHA-256 checksums and a root manifest, and uploads a timestamped snapshot. It does not copy a live datastore database.
-
-Install the supplied `infra/node/systemd/orbitcid-backup.service` and `.timer` units for a randomized daily run, or use your provider's scheduler. Alert on timer failures and stale snapshot timestamps.
-
-Test a clean restore:
-
-```bash
 docker compose --profile backup run --rm --entrypoint /usr/local/bin/restore.sh backup
 ```
 
-Keep at least one backup account separate from the VPS provider. Preserve the encrypted rclone configuration password offline; losing it makes encrypted backups unrecoverable.
+The backup exports recursive pins to CAR, writes checksums and a manifest, then transfers ciphertext. Install the supplied systemd timer for scheduled runs and alert on missed backups. A production launch requires a clean-volume restore test.
 
-OrbitCID also writes paginated AES-256-GCM control-plane recovery snapshots to its private recovery bucket. Mirror the recovery, objects, and blocks buckets to the offsite crypt remote with read-only R2 credentials and verify downloaded pages using `npm run recovery:verify`. An optional output argument creates reviewed restore SQL for a freshly migrated empty D1 database. Content CARs, R2 objects/blocks, and metadata recovery snapshots are separate; a complete disaster-recovery test needs all of them.
+## 8. Optional Cloudflare provider profile
 
-## 8. Migrate and deploy the Worker
+Operators who need the existing project/R2 provider features can deploy `infra/terraform` and the root Worker separately. Use a narrowly scoped Cloudflare API token. Review every Terraform plan and preserve unrelated DNS records.
 
-```powershell
-npm ci
-npm run build
-npm run db:migrate:remote
-npm run deploy
-```
+The Cloudflare profile provisions its own Worker, D1, R2, KV, queues, workflows, Access policies, and gateway boundaries. Follow the values in the root `.dev.vars.example`, `wrangler.jsonc`, and `infra/terraform/terraform.tfvars.example`. Do not expose an R2 bucket through `r2.dev`.
 
-Migration `0006_security_hardening.sql` intentionally invalidates any pre-release admin sessions while moving to the hashed revocable session schema.
+The optional `infra/terraform-google` root creates one Kubo node by default. It is separate so users of another VPS do not need Google Cloud credentials. A second node remains optional.
 
-## 9. Access and DNS boundaries
+## 9. Production acceptance
 
-- Protect the admin hostname with the owner Access application.
-- Leave the gateway hostname outside Access.
-- Limit the Access bypass to `/api/v1/p/*`, `/api/v0/*`, and `/internal/replication/*`; the Worker still requires project keys or signed replication tickets on those paths.
-- Do not modify unrelated DNS records. Preserve existing mail, verification, and application records.
+Before real content:
 
-## 10. Production activation
+- Verify Google login, logout, session revocation, and avatar rendering.
+- Confirm anonymous mutation APIs return `401`.
+- Run the Neon RLS isolation check.
+- Pair a backend and verify a wrong user/audience/scope grant is rejected.
+- Confirm replaying one mutation grant returns `401`.
+- Upload at the 1 MiB boundary and a multi-chunk file.
+- Retrieve the CID through the authenticated backend route.
+- Confirm Kubo has public peers and retrieve a deliberately public test CID from an independent IPFS peer.
+- Verify that `5001` and `8080` are not internet-reachable.
+- Run a large interrupted upload test appropriate to the server and reverse proxy limits.
+- Restore the latest encrypted CAR snapshot into a clean Kubo volume.
+- Configure disk, memory, certificate, backup, and billing alerts.
 
-Before enabling a public project:
-
-- Upload and retrieve private test content.
-- Confirm anonymous private requests return `404`.
-- Verify key scope, expiry, rotation, and revocation.
-- Run an interrupted 1 GB upload.
-- Run the planned staging storage test.
-- Confirm Kubo peer reachability and independent retrieval from another peer.
-- Stop or isolate R2 temporarily and confirm an authorized gateway request reports `X-OrbitCID-Source: kubo-primary`.
-- Restore the latest encrypted CAR snapshot into a clean Kubo data volume and retrieve a test CID.
-- Configure billing alerts and monitoring.
-
-Disabling an already-used secondary node should be preceded by unpublishing or unpinning its OrbitCID-managed roots and confirming the primary node is healthy.
+One node is not high availability. It is a valid professional starting profile when monitored and recoverable; add an independent replica later without changing the frontend identity or connection model.

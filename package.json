@@ -1,18 +1,23 @@
 {
   "name": "orbitcid",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Secure, self-hosted IPFS control plane with a portable Kubo data plane and encrypted disaster recovery",
+  "workspaces": [
+    "frontend"
+  ],
+  "description": "Vercel and Neon control surface for secure, self-hosted Kubo IPFS infrastructure",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "dev:frontend": "npm --workspace frontend run dev",
     "dev:dashboard": "vite --host 0.0.0.0",
     "build:dashboard": "vite build --configLoader native",
     "build:worker": "wrangler deploy --dry-run --outdir dist",
-    "build": "npm run build:dashboard && npm run typecheck && npm run build:worker",
+    "build:frontend": "npm --workspace frontend run build",
+    "build": "npm run build:frontend && npm run build:dashboard && npm run typecheck && npm run build:worker",
     "deploy": "wrangler deploy",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && npm --workspace frontend run typecheck",
     "test": "vitest run --configLoader native --pool=threads --maxWorkers=1",
     "test:watch": "vitest",
     "db:migrate:local": "wrangler d1 migrations apply orbitcid_metadata --local",
@@ -21,7 +26,7 @@
     "secret:generate": "node scripts/generate-secret.mjs",
     "security:release": "node scripts/check-public-release.mjs",
     "recovery:verify": "node scripts/verify-recovery.mjs",
-    "lint": "tsc --noEmit"
+    "lint": "npm run typecheck"
   },
   "dependencies": {
     "@ipld/car": "5.4.7",

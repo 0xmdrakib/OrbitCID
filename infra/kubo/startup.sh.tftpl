@@ -14,7 +14,9 @@ DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-compose-plugi
 systemctl enable --now docker
 
 echo '${bridge_source}' | base64 -d > /opt/orbitcid/bridge.mjs
+echo '${grant_auth_source}' | base64 -d > /opt/orbitcid/grant-auth.mjs
 chmod 0600 /opt/orbitcid/bridge.mjs
+chmod 0600 /opt/orbitcid/grant-auth.mjs
 cat > /opt/orbitcid/001-orbitcid.sh <<'EOF'
 #!/bin/sh
 set -eu
@@ -64,6 +66,7 @@ services:
       ADMIN_ORIGIN: "$${ADMIN_ORIGIN}"
     volumes:
       - /opt/orbitcid/bridge.mjs:/app/bridge.mjs:ro
+      - /opt/orbitcid/grant-auth.mjs:/app/grant-auth.mjs:ro
       - /srv/ipfs/staging:/var/lib/orbitcid
     command: ["node", "/app/bridge.mjs"]
     depends_on:
