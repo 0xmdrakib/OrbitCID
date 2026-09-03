@@ -73,3 +73,75 @@
   .backup-summary .row-buttons{grid-column:1;align-items:stretch;flex-direction:column}
   .backup-summary .row-buttons button{width:100%}
 }
+
+.site-footer nav {
+  display: flex;
+  gap: 18px;
+}
+
+.site-footer a {
+  text-underline-offset: 4px;
+}
+
+.legal-main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 54px 34px 40px;
+}
+
+.legal-card {
+  padding: clamp(34px, 6vw, 76px);
+  border: 1px solid var(--white);
+  border-radius: 44px;
+  background: var(--surface);
+}
+
+.legal-card h1 {
+  max-width: 850px;
+  margin: 24px 0 22px;
+  font-size: clamp(48px, 7vw, 88px);
+  line-height: .9;
+  letter-spacing: -.065em;
+}
+
+.legal-lead {
+  max-width: 760px;
+  margin: 0 0 54px;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.7;
+}
+
+.legal-card section {
+  display: grid;
+  grid-template-columns: minmax(180px, .35fr) minmax(0, 1fr);
+  gap: 32px;
+  padding: 28px 0;
+  border-top: 1px solid var(--line);
+}
+
+.legal-card section h2 {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -.025em;
+}
+
+.legal-card section p {
+  max-width: 660px;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.legal-card > .ink-button {
+  margin-top: 34px;
+}
+
+@media (max-width: 740px) {
+  .site-footer nav { gap: 16px; }
+  .legal-main { padding: 34px 14px 22px; }
+  .legal-card { padding: 34px 24px; border-radius: 34px; }
+  .legal-card h1 { font-size: 52px; }
+  .legal-lead { margin-bottom: 38px; font-size: 16px; }
+  .legal-card section { grid-template-columns: 1fr; gap: 10px; padding: 24px 0; }
+}
