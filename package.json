@@ -16,6 +16,7 @@
     "test": "vitest run --configLoader native --pool=threads --maxWorkers=1",
     "test:watch": "vitest",
     "security:release": "node scripts/check-public-release.mjs",
+    "audit:production": "node scripts/audit-production.mjs",
     "lint": "npm run typecheck"
   },
   "devDependencies": {
