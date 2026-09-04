@@ -22,6 +22,12 @@ const code = (process.env.ORBITCID_PAIRING_CODE || await terminal.question("Past
 terminal.close();
 if (!/^orb_pair_[A-Za-z0-9_-]{40,}$/.test(code)) throw new Error("Pairing code format is invalid");
 
+const expectedJwksUri = new URL("/api/.well-known/orbitcid-jwks.json", frontend);
+const jwksResponse = await fetch(expectedJwksUri, { redirect: "error", signal: AbortSignal.timeout(15_000) });
+if (!jwksResponse.ok) throw new Error("Could not download the frontend grant keys");
+const jwks = await jwksResponse.json();
+if (!Array.isArray(jwks.keys) || !jwks.keys.length) throw new Error("Frontend JWKS contains no signing key");
+
 const { privateKey, publicKey } = generateKeyPairSync("ed25519");
 const privateJwk = privateKey.export({ format: "jwk" });
 const publicJwk = publicKey.export({ format: "jwk" });
@@ -39,10 +45,9 @@ const claim = await fetch(new URL("/api/pairing/claim", frontend), {
 });
 const result = await claim.json().catch(() => ({}));
 if (!claim.ok) throw new Error(result?.error?.message || `Pairing failed with HTTP ${claim.status}`);
-const jwksResponse = await fetch(result.jwksUri, { redirect: "error", signal: AbortSignal.timeout(15_000) });
-if (!jwksResponse.ok) throw new Error("Could not download the frontend grant keys");
-const jwks = await jwksResponse.json();
-if (!Array.isArray(jwks.keys) || !jwks.keys.length) throw new Error("Frontend JWKS contains no signing key");
+if (result.frontendOrigin !== frontend.origin || result.issuer !== frontend.origin || result.jwksUri !== expectedJwksUri.href) {
+  throw new Error("Frontend returned inconsistent pairing metadata");
+}
 
 const config = {
   version: 1,

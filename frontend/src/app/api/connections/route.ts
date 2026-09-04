@@ -11,6 +11,6 @@ export async function GET(request: Request) {
   const session = await requireSession(request.headers);
   if (!session) return unauthorized();
   const connections = await tenantRows<ConnectionRow>(session.user.id,
-    "SELECT id, name, endpoint, key_fingerprint, state, last_seen_at, created_at FROM backend_connections ORDER BY created_at DESC");
+    "SELECT id, name, endpoint, key_fingerprint, state, last_seen_at, created_at FROM backend_connections WHERE state <> 'revoked' ORDER BY created_at DESC");
   return NextResponse.json({ connections }, { headers: { "Cache-Control": "private, no-store" } });
 }

@@ -8,6 +8,20 @@ OrbitCID is a secure, open-source control surface that connects a signed-in web 
 
 ---
 
+## Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| Web application | Next.js, React, TypeScript |
+| Identity | Google OAuth, Better Auth |
+| Isolated control state | PostgreSQL with Row-Level Security |
+| IPFS data plane | Kubo, UnixFS, CIDv1, libp2p, DHT, Bitswap |
+| Backend bridge | Node.js, signed Ed25519 grants |
+| Node packaging | Docker Compose |
+| Optional offsite backup | S3-compatible object storage with client-owned encrypted credentials |
+
+---
+
 ## Architecture
 
 1. **Hosted frontend** — anyone can inspect the public interface. Google sign-in is required before connecting a backend or performing a private action.

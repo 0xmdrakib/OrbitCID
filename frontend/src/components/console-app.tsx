@@ -10,6 +10,7 @@ interface Activity { id: string; action: string; subject: string | null; connect
 interface Claim { code: string; expiresAt: string }
 interface Pin { cid: string; type: string }
 interface BackupStatus { configured: boolean; provider: string; bucket?: string; prefix?: string; retentionDays?: number; accountHint?: string; state: string; lastStartedAt?: string | null; lastCompletedAt?: string | null; lastError?: string | null; accepted?: boolean }
+interface NodeHealth { state: "checking" | "online" | "offline"; peers?: number; peerId?: string; checkedAt?: string }
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, { ...init, headers: { ...(init?.body ? { "Content-Type": "application/json" } : {}), ...init?.headers }, credentials: "same-origin" });
@@ -21,6 +22,7 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 export function ConsoleApp() {
   const { data: session, isPending } = authClient.useSession();
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [nodeHealth, setNodeHealth] = useState<Record<string, NodeHealth>>({});
   const [activity, setActivity] = useState<Activity[]>([]);
   const [label, setLabel] = useState("My IPFS node");
   const [claim, setClaim] = useState<Claim | null>(null);
@@ -41,9 +43,39 @@ export function ConsoleApp() {
   const refresh = useCallback(async () => {
     const [connectionData, activityData] = await Promise.all([api<{ connections: Connection[] }>("/api/connections"), api<{ activity: Activity[] }>("/api/activity")]);
     setConnections(connectionData.connections); setActivity(activityData.activity);
-    setActiveConnectionId((current) => current || connectionData.connections.find((item) => item.state === "active")?.id || "");
+    setActiveConnectionId((current) => connectionData.connections.some((item) => item.id === current && item.state === "active") ? current : connectionData.connections.find((item) => item.state === "active")?.id || "");
   }, []);
   useEffect(() => { if (session?.user) void refresh().catch((error) => setNotice(error.message)); }, [session?.user, refresh]);
+
+  const probeConnection = useCallback(async (connection: Connection) => {
+    setNodeHealth((current) => ({ ...current, [connection.id]: { ...current[connection.id], state: "checking" } }));
+    try {
+      const grant = await api<{ token: string; endpoint: string }>("/api/backend/grant", { method: "POST", body: JSON.stringify({ connectionId: connection.id, scopes: ["read"] }) });
+      const response = await fetch(`${grant.endpoint}/v1/tenant/health`, {
+        headers: { Authorization: `Bearer ${grant.token}` },
+        signal: AbortSignal.timeout(12_000)
+      });
+      if (!response.ok) throw new Error(`Backend returned ${response.status}`);
+      const result = await response.json() as { peers?: number; peerId?: string };
+      const health: NodeHealth = { state: "online", peers: result.peers ?? 0, peerId: result.peerId, checkedAt: new Date().toISOString() };
+      setNodeHealth((current) => ({ ...current, [connection.id]: health }));
+      return health;
+    } catch (error) {
+      const health: NodeHealth = { state: "offline", checkedAt: new Date().toISOString() };
+      setNodeHealth((current) => ({ ...current, [connection.id]: health }));
+      throw error;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    const active = connections.filter((connection) => connection.state === "active");
+    if (!active.length) return;
+    const checkAll = () => { for (const connection of active) void probeConnection(connection).catch(() => undefined); };
+    checkAll();
+    const timer = window.setInterval(checkAll, 60_000);
+    return () => window.clearInterval(timer);
+  }, [connections, probeConnection, session?.user]);
 
   if (isPending) return <main className="console-loading"><span className="spinner"/>Verifying your session…</main>;
   if (!session?.user) return <main className="sign-in-panel"><div className="mark large"><BrandMark size={48} tone="light"/></div><p className="eyebrow">PRIVATE ACTION REQUIRED</p><h1>Sign in to create your isolated workspace.</h1><p>The public frontend is open to inspect. Connections, activity and backend grants require a verified Google session.</p><button className="ink-button large" onClick={() => void authClient.signIn.social({ provider: "google", callbackURL: "/console" })}>Continue with Google <Icon name="arrow"/></button></main>;
@@ -57,17 +89,21 @@ export function ConsoleApp() {
   async function testConnection(connection: Connection) {
     setBusy(true); setNotice("");
     try {
-      const grant = await api<{ token: string; endpoint: string }>("/api/backend/grant", { method: "POST", body: JSON.stringify({ connectionId: connection.id, scopes: ["read"] }) });
-      const response = await fetch(`${grant.endpoint}/v1/tenant/health`, { headers: { Authorization: `Bearer ${grant.token}` } });
-      if (!response.ok) throw new Error(`Backend returned ${response.status}`);
-      const result = await response.json(); setNotice(`${connection.name} is online · ${result.peers ?? 0} IPFS peers`);
+      const result = await probeConnection(connection); setNotice(`${connection.name} is online · ${result.peers ?? 0} IPFS peers`);
       await fetch("/api/activity", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "backend.checked", subject: connection.name, connectionId: connection.id }) });
     } catch (error) { setNotice(error instanceof Error ? error.message : "Backend health check failed"); }
     finally { setBusy(false); }
   }
   async function revoke(connection: Connection) {
     if (!window.confirm(`Revoke ${connection.name}? Its old grants will expire within five minutes.`)) return;
-    setBusy(true); try { await fetch(`/api/connections/${connection.id}`, { method: "DELETE", credentials: "same-origin" }); await refresh(); } finally { setBusy(false); }
+    setBusy(true); setNotice("");
+    try {
+      const response = await fetch(`/api/connections/${connection.id}`, { method: "DELETE", credentials: "same-origin" });
+      if (!response.ok) throw new Error(`Could not revoke backend (${response.status})`);
+      setNodeHealth((current) => { const next = { ...current }; delete next[connection.id]; return next; });
+      await refresh();
+    } catch (error) { setNotice(error instanceof Error ? error.message : "Could not revoke backend"); }
+    finally { setBusy(false); }
   }
 
   const activeConnection = connections.find((connection) => connection.id === activeConnectionId && connection.state === "active");
@@ -161,7 +197,7 @@ export function ConsoleApp() {
     {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")} aria-label="Dismiss"><Icon name="x" size={16}/></button></div>}
     <section className="console-grid">
       <div className="console-panel connections-panel"><div className="panel-head"><div><p className="eyebrow">BACKEND CONNECTIONS</p><h2>Your nodes</h2></div><span className="count">{connections.filter((item) => item.state === "active").length}</span></div>
-        {connections.length ? <div className="connection-list">{connections.map((connection) => <article key={connection.id} className={connection.state !== "active" ? "muted" : ""}><span className="connection-icon"><Icon name="server"/></span><div><strong>{connection.name}</strong><code>{connection.endpoint}</code><small>Key {connection.key_fingerprint.slice(0, 12)}… · {connection.state}</small></div><div className="row-buttons">{connection.state === "active" && <button onClick={() => void testConnection(connection)} disabled={busy}>Test</button>}<button className="danger-text" onClick={() => void revoke(connection)} disabled={busy}>Revoke</button></div></article>)}</div> : <div className="empty-state"><span><Icon name="link" size={28}/></span><h3>No backend connected</h3><p>Create a one-time claim, then run the pairing command on your own server.</p></div>}
+        {connections.length ? <div className="connection-list">{connections.map((connection) => { const health = nodeHealth[connection.id]; return <article key={connection.id}><span className="connection-icon"><Icon name="server"/></span><div><strong>{connection.name}</strong><code>{connection.endpoint}</code><span className="connection-meta"><small>Key {connection.key_fingerprint.slice(0, 12)}…</small><small className={`node-health ${health?.state || "checking"}`} title={health?.checkedAt ? `Checked ${new Date(health.checkedAt).toLocaleTimeString()}` : "Checking now"}><i/>{health?.state === "online" ? `Kubo online · ${health.peers ?? 0} peers` : health?.state === "offline" ? "Kubo offline" : "Checking Kubo…"}</small></span></div><div className="row-buttons"><button onClick={() => void testConnection(connection)} disabled={busy}>Test</button><button className="danger-text" onClick={() => void revoke(connection)} disabled={busy}>Revoke</button></div></article>; })}</div> : <div className="empty-state"><span><Icon name="link" size={28}/></span><h3>No backend connected</h3><p>Create a one-time claim, then run the pairing command on your own server.</p></div>}
       </div>
       <form className="console-panel pair-panel" onSubmit={createClaim}><p className="eyebrow">ONE-TIME PAIRING</p><h2>Connect your backend</h2><p>Your secure pairing code can be used once and expires automatically.</p><label>Connection name<input value={label} onChange={(event) => setLabel(event.target.value)} minLength={1} maxLength={80} required/></label><button className="ink-button wide" disabled={busy}>{busy ? "Preparing…" : "Create pairing code"}<Icon name="arrow"/></button>
         {claim && <div className="claim-box"><small>ONE-TIME CODE · EXPIRES {new Date(claim.expiresAt).toLocaleTimeString()}</small><code>{claim.code}</code><button type="button" onClick={() => void navigator.clipboard.writeText(claim.code)}>Copy code</button><hr/><small>ON YOUR BACKEND</small><pre>docker compose --profile pair run --rm pair</pre><p>Paste the code only when the secure terminal prompt asks for it.</p></div>}
