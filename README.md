@@ -8,6 +8,16 @@ OrbitCID is a secure, open-source control surface that connects a signed-in web 
 
 ---
 
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| [`frontend`](frontend) | Next.js application, Google OAuth, tenant schema/isolation, pairing and grants |
+| [`backend`](backend) | Portable pairing, grant verification, and encrypted R2 backup state |
+| [`infra/node`](infra/node) | Docker Compose Kubo node, OrbitCID agent, backup and recovery tooling |
+| [`docs`](docs) | Deployment and threat-model documentation |
+| [`test`](test) | Pairing, grant, replay, tenant-isolation, and backup-security tests |
+
 ## Tech stack
 
 | Layer | Technology |
@@ -19,16 +29,6 @@ OrbitCID is a secure, open-source control surface that connects a signed-in web 
 | Backend bridge | Node.js, signed Ed25519 grants |
 | Node packaging | Docker Compose |
 | Optional offsite backup | S3-compatible object storage with client-owned encrypted credentials |
-
-## Repository layout
-
-| Path | Purpose |
-| --- | --- |
-| [`frontend`](frontend) | Next.js application, Google OAuth, tenant schema/isolation, pairing and grants |
-| [`backend`](backend) | Portable pairing, grant verification, and encrypted R2 backup state |
-| [`infra/node`](infra/node) | Docker Compose Kubo node, OrbitCID agent, backup and recovery tooling |
-| [`docs`](docs) | Deployment and threat-model documentation |
-| [`test`](test) | Pairing, grant, replay, tenant-isolation, and backup-security tests |
 
 ---
 
