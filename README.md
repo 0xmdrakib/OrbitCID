@@ -8,28 +8,6 @@ OrbitCID is a secure, open-source control surface that connects a signed-in web 
 
 ---
 
-## Repository layout
-
-| Path | Purpose |
-| --- | --- |
-| [`frontend`](frontend) | Next.js application, Google OAuth, tenant schema/isolation, pairing and grants |
-| [`backend`](backend) | Portable pairing, grant verification, and encrypted R2 backup state |
-| [`infra/node`](infra/node) | Docker Compose Kubo node, OrbitCID agent, backup and recovery tooling |
-| [`docs`](docs) | Deployment and threat-model documentation |
-| [`test`](test) | Pairing, grant, replay, tenant-isolation, and backup-security tests |
-
-## Tech stack
-
-| Layer | Technology |
-| --- | --- |
-| Web application | Next.js, React, TypeScript |
-| Identity | Google OAuth, Better Auth |
-| Isolated control state | PostgreSQL with Row-Level Security |
-| IPFS data plane | Kubo, UnixFS, CIDv1, libp2p, DHT, Bitswap |
-| Backend bridge | Node.js, signed Ed25519 grants |
-| Node packaging | Docker Compose |
-| Optional offsite backup | S3-compatible object storage with client-owned encrypted credentials |
-
 ---
 
 ## Architecture
@@ -55,6 +33,28 @@ Kubo is the true IPFS data plane. It participates in libp2p, DHT, Bitswap, and t
 - R2 credentials sent directly to the paired backend, AES-256-GCM encrypted at rest, and never stored by the hosted control plane
 - R2 CAR snapshots encrypted with rclone crypt before upload
 - No authentication bypass or real secret in the public repository
+
+## Repository layout
+
+| Path | Purpose |
+| --- | --- |
+| [`frontend`](frontend) | Next.js application, Google OAuth, tenant schema/isolation, pairing and grants |
+| [`backend`](backend) | Portable pairing, grant verification, and encrypted R2 backup state |
+| [`infra/node`](infra/node) | Docker Compose Kubo node, OrbitCID agent, backup and recovery tooling |
+| [`docs`](docs) | Deployment and threat-model documentation |
+| [`test`](test) | Pairing, grant, replay, tenant-isolation, and backup-security tests |
+
+## Tech stack
+
+| Layer | Technology |
+| --- | --- |
+| Web application | Next.js, React, TypeScript |
+| Identity | Google OAuth, Better Auth |
+| Isolated control state | PostgreSQL with Row-Level Security |
+| IPFS data plane | Kubo, UnixFS, CIDv1, libp2p, DHT, Bitswap |
+| Backend bridge | Node.js, signed Ed25519 grants |
+| Node packaging | Docker Compose |
+| Optional offsite backup | S3-compatible object storage with client-owned encrypted credentials |
 
 ## Deploy a backend
 
