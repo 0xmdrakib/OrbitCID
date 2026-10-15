@@ -227,6 +227,7 @@
 
 .legal-card h1 {
   max-width: 850px;
+  overflow-wrap: anywhere;
   margin: 24px 0 22px;
   font-size: clamp(48px, 7vw, 88px);
   line-height: .9;
