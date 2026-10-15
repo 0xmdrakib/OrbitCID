@@ -17,6 +17,7 @@
     "test:watch": "vitest",
     "security:release": "node scripts/check-public-release.mjs",
     "audit:production": "node scripts/audit-production.mjs",
+    "audit:all": "node scripts/audit-production.mjs --all",
     "lint": "npm run typecheck"
   },
   "devDependencies": {
