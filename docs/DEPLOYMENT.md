@@ -6,7 +6,7 @@ Examples use `example.com` and blank values. Never commit database URLs, OAuth s
 
 ## 1. Control database
 
-Create separate PostgreSQL-compatible databases or isolated branches for development, preview, and production. Use the pooled privileged URL only for authentication, migrations, and the pairing-claim service transaction.
+Create separate PostgreSQL-compatible databases or isolated branches for local development and production. Use the pooled privileged URL only for authentication, migrations, and the pairing-claim service transaction.
 
 ```bash
 npm --workspace frontend run db:migrate
@@ -46,9 +46,9 @@ OrbitCID requests only normal Google identity profile data. It does not require 
 
 ## 3. Vercel
 
-Import the repository and keep the repository root as the Vercel project root. `vercel.json` builds the `frontend` workspace.
+Import the repository, set **Root Directory** to `frontend`, and use the Next.js preset. Keep **Production Branch** set to `main` and turn off **Preview → Branch Tracking**. The `frontend/vercel.json` rule also enables Git deployments only for `main`; pull requests still run CI and CodeQL.
 
-Add every variable from `frontend/.env.example`:
+Add every variable from `frontend/.env.example` to **Production** only:
 
 - `BETTER_AUTH_URL`
 - `BETTER_AUTH_SECRET`
@@ -67,7 +67,7 @@ Generate the asymmetric grant key locally:
 npm --workspace frontend run key:generate
 ```
 
-Transfer its output directly into Vercel secrets. Never expose a database URL, OAuth secret, or signing key through a `NEXT_PUBLIC_` variable. Use separate credentials for preview and production.
+Transfer its output directly into Vercel secrets. Never expose a database URL, OAuth secret, or signing key through a `NEXT_PUBLIC_` variable. Keep local development credentials separate from production.
 
 ## 4. Kubo backend
 

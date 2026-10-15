@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - run: npm ci --no-audit
       - run: npm run security:release
       - run: npm run typecheck
       - run: npm test
@@ -39,7 +39,8 @@ jobs:
         env:
           DATABASE_URL: postgresql://postgres:orbitcid-ci-only@127.0.0.1:5432/orbitcid
       - run: npm run build
-      - run: npm run audit:production
+      - run: npm run audit:all
+        timeout-minutes: 5
       - run: docker compose --env-file ../../backend/.env.example config --quiet
         working-directory: infra/node
         env:

@@ -17,11 +17,12 @@
     "test:watch": "vitest",
     "security:release": "node scripts/check-public-release.mjs",
     "audit:production": "node scripts/audit-production.mjs",
+    "audit:all": "node scripts/audit-production.mjs --all",
     "lint": "npm run typecheck"
   },
   "devDependencies": {
     "@types/node": "26.1.2",
     "typescript": "7.0.2",
-    "vitest": "4.1.10"
+    "vitest": "4.1.11"
   }
 }
