@@ -14,7 +14,7 @@
     "key:generate": "node scripts/generate-grant-key.mjs"
   },
   "dependencies": {
-    "better-auth": "1.7.2",
+    "better-auth": "1.7.15",
     "jose": "6.2.8",
     "next": "16.3.8",
     "react": "19.2.8",
